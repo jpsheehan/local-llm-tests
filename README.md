@@ -11,9 +11,11 @@
 
 ## Existing Bugs
 
-- [ ] The player sometimes has to complete an extra lap.
+- [ ] The minimap has a little white line on the player's circle. Remove it.
 
 ## Fixed Bugs
+
+- [x] The game sometimes doesn't detect when the player completes a lap.
 
 - [x] The angle of the NPC cars is wrong.
 - [x] The angle of the barriers is wrong.

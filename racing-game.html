@@ -649,6 +649,8 @@ let playerLap = 0;
 let playerLastCheckpoint = 0;
 let playerCheckpointsPassed = 0;
 let playerFinished = false;
+let playerPrevAlong = 0;
+let playerFinishCrossings = 0;
 
 const keys = { w: false, a: false, s: false, d: false, up: false, down: false, left: false, right: false };
 
@@ -725,6 +727,8 @@ function restartGame() {
   playerLastCheckpoint = 0;
   playerCheckpointsPassed = 0;
   playerFinished = false;
+  playerPrevAlong = 0;
+  playerFinishCrossings = 0;
   
   for (let i = 0; i < AI_COUNT; i++) {
     placeOnGrid(aiCars[i], gridPositions[i].t, gridPositions[i].lateral, gridPositions[i].longitudinal);
@@ -941,30 +945,38 @@ function updatePlayer(dt) {
   const roll = playerCar.rotation.z || 0;
   playerCar.rotation.z = roll + (targetRoll - roll) * Math.min(1, dt * 8);
   
-  // Checkpoint detection
+  // Start/finish line crossing detection (along-track direction)
+  const sfPos = checkpointPositions[0];
+  const sfTan = trackCurve.getTangent(0);
+  const toCar = playerCar.position.clone().sub(sfPos);
+  const along = toCar.dot(sfTan);
+
+  if (playerPrevAlong < 0 && along >= 0) {
+    playerFinishCrossings++;
+    if (playerFinishCrossings > 1) {
+      playerCheckpointsPassed = 0;
+      playerLastCheckpoint = 0;
+      playerLap++;
+      if (playerLap >= TOTAL_LAPS) {
+        playerFinished = true;
+        gameOver = true;
+        showMessage('RACE COMPLETE!');
+      }
+    }
+  }
+  playerPrevAlong = along;
+  
+  // Checkpoint detection (for progress, not lap counting)
   const cIdx = getClosestCheckpointIndex(playerCar.position);
   const cpPos = checkpointPositions[cIdx];
   const dist = playerCar.position.distanceTo(cpPos);
   const detectDist = cIdx === 0 ? 4.5 : ROAD_WIDTH * 0.8;
   
-  if (dist < detectDist) {
-    if (cIdx === 0 && playerCheckpointsPassed > NUM_CHECKPOINTS * 0.7) {
-      // Crossed start/finish (checkpoint 0 after passing most checkpoints)
-      if (playerLastCheckpoint !== cIdx) {
-        playerCheckpointsPassed = 0;
-        playerLap++;
-        if (playerLap >= TOTAL_LAPS) {
-          playerFinished = true;
-          gameOver = true;
-          showMessage('RACE COMPLETE!');
-        }
-        playerLastCheckpoint = cIdx;
-      }
-    } else if (cIdx === playerLastCheckpoint + 1 || (cIdx === 0 && playerLastCheckpoint === NUM_CHECKPOINTS - 1)) {
+  if (dist < detectDist && cIdx !== 0) {
+    if (cIdx === playerLastCheckpoint + 1) {
       playerCheckpointsPassed++;
       playerLastCheckpoint = cIdx;
     } else if (cIdx > playerLastCheckpoint + 1 && cIdx - playerLastCheckpoint < NUM_CHECKPOINTS / 2) {
-      // Skipped ahead (going forward fast)
       playerCheckpointsPassed += (cIdx - playerLastCheckpoint);
       playerLastCheckpoint = cIdx;
     }
