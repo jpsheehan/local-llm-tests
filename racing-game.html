@@ -1086,6 +1086,7 @@ function updatePlayer(dt) {
       if (playerLap >= TOTAL_LAPS) {
         playerFinished = true;
         gameOver = true;
+        playerSpeed = 0;
         showMessage('RACE COMPLETE!');
         Sound.finish();
       } else if (playerLap === TOTAL_LAPS - 1) {

@@ -1,6 +1,6 @@
 # Circuit Racer
 
-## Feature Requests
+## Features
 
 - [ ] AI cars should have their own racing lines so that they don't keep colliding with each other.
 - [x] Add sound effects for:
@@ -10,16 +10,14 @@
     - [x] Completing the penultimate lap
     - [x] Finishing the race
     - [x] Counting down to the race start
-
-## Features Completed
-
 - [x] Add collision detection
 - [x] Add a list of lap times to the UI.
 - [x] Add a new first-person camera angle and make it the default. The player should be able to toggle between them with 'C'.
 - [x] Place all the cars on a starting grid with the player at the rear.
 
-## Fixed Bugs
+## Bugs
 
+- [x] The player's speed is still set to the speed they were going when they finish the race rather than zero.
 - [x] The game sometimes doesn't detect when the player completes a lap.
 - [x] When switching between camera modes, the camera should smoothly interpolate between the two rather than snapping.
 - [x] The angle of the NPC cars is wrong.
