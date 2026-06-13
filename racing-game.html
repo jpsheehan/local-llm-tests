@@ -59,6 +59,23 @@ canvas { display: block; }
 }
 #message.show { opacity: 1; }
 
+#lap-times-panel {
+  position: absolute; top: 130px; right: 40px;
+  text-align: right;
+  font-size: 14px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  line-height: 1.6;
+}
+#lap-times-title {
+  font-size: 12px; opacity: 0.6; text-transform: uppercase; letter-spacing: 2px; margin-bottom: 2px;
+}
+.lap-time-row {
+  display: flex; gap: 12px; justify-content: flex-end;
+}
+.lap-time-row .label { opacity: 0.7; }
+.lap-time-row .time { font-variant-numeric: tabular-nums; }
+.lap-time-row.best { color: #9f6; }
+
 #controls-hint {
   position: absolute; bottom: 40px; right: 40px;
   font-size: 12px; opacity: 0.35; text-align: right; line-height: 1.6;
@@ -98,6 +115,10 @@ canvas { display: block; }
     D / → Steer Right<br>
     C Switch Camera<br>
     R Restart
+  </div>
+  <div id="lap-times-panel">
+    <div id="lap-times-title">Lap Times</div>
+    <div id="lap-times-list"></div>
   </div>
   <div id="message"></div>
   <div id="minimap"><canvas id="minimap-canvas" width="140" height="140"></canvas></div>
@@ -651,6 +672,8 @@ let playerCheckpointsPassed = 0;
 let playerFinished = false;
 let playerPrevAlong = 0;
 let playerFinishCrossings = 0;
+const playerLapTimes = [];
+let playerLastLapTime = 0;
 
 const keys = { w: false, a: false, s: false, d: false, up: false, down: false, left: false, right: false };
 
@@ -729,6 +752,8 @@ function restartGame() {
   playerFinished = false;
   playerPrevAlong = 0;
   playerFinishCrossings = 0;
+  playerLapTimes.length = 0;
+  playerLastLapTime = 0;
   
   for (let i = 0; i < AI_COUNT; i++) {
     placeOnGrid(aiCars[i], gridPositions[i].t, gridPositions[i].lateral, gridPositions[i].longitudinal);
@@ -753,6 +778,7 @@ const lapTextEl = document.getElementById('lap-text');
 const timerTextEl = document.getElementById('timer-text');
 const positionTextEl = document.getElementById('position-text');
 const posLabelEl = document.getElementById('pos-label');
+const lapTimesListEl = document.getElementById('lap-times-list');
 
 function updateHUD() {
   const displaySpeed = Math.round(Math.abs(playerSpeed) * 2.5);
@@ -773,6 +799,22 @@ function updateHUD() {
   const posText = playerPos >= 0 ? `${playerPos + 1}${getOrdinalSuffix(playerPos + 1)}` : '—';
   positionTextEl.textContent = posText;
   positionTextEl.style.color = playerPos === 0 ? '#ffd700' : '#ffffff';
+  
+  // Lap times
+  let html = '';
+  let best = Math.min(...playerLapTimes);
+  for (let i = 0; i < playerLapTimes.length; i++) {
+    const cls = playerLapTimes[i] === best && playerLapTimes.length > 1 ? 'lap-time-row best' : 'lap-time-row';
+    html += `<div class="${cls}"><span class="label">Lap ${i + 1}</span><span class="time">${formatTime(playerLapTimes[i])}</span></div>`;
+  }
+  lapTimesListEl.innerHTML = html;
+}
+
+function formatTime(t) {
+  const mins = Math.floor(t / 60);
+  const secs = Math.floor(t % 60);
+  const tenths = Math.floor((t % 1) * 10);
+  return `${mins}:${secs.toString().padStart(2, '0')}.${tenths}`;
 }
 
 function getOrdinalSuffix(n) {
@@ -942,6 +984,8 @@ function updatePlayer(dt) {
   if (playerPrevAlong < 0 && along >= 0) {
     playerFinishCrossings++;
     if (playerFinishCrossings > 1) {
+      playerLapTimes.push(gameTime - playerLastLapTime);
+      playerLastLapTime = gameTime;
       playerCheckpointsPassed = 0;
       playerLastCheckpoint = 0;
       playerLap++;
@@ -950,6 +994,8 @@ function updatePlayer(dt) {
         gameOver = true;
         showMessage('RACE COMPLETE!');
       }
+    } else {
+      playerLastLapTime = gameTime;
     }
   }
   playerPrevAlong = along;
