@@ -974,7 +974,10 @@ function updatePositions() {
   racePositions = [];
   
   // Player progress — use closest checkpoint index, same sector system as AI
-  const playerCIdx = getClosestCheckpointIndex(playerCar.position);
+  let playerCIdx = getClosestCheckpointIndex(playerCar.position);
+  if (playerCIdx === 0 && playerLastCheckpoint > NUM_CHECKPOINTS / 2) {
+    playerCIdx = NUM_CHECKPOINTS - 1;
+  }
   const playerProgress = playerLap * NUM_CHECKPOINTS + playerCIdx;
   racePositions.push({ progress: playerProgress, isPlayer: true, finished: playerFinished, gridOrder: 3 });
   

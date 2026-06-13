@@ -25,7 +25,7 @@
 - [x] The acceleration sound effect is too loud.
 - [x] The collision detection should be more permissive. Collisions currently occur when the player is near but not touching another car.
 - [x] The AI cars should be allowed to be knocked off their racing line if they're in a collision
-- [ ] The player's position briefly shows as '4th' place just before they cross the finish line even when they're not in that position
+- [x] The player's position briefly shows as '4th' place just before they cross the finish line even when they're not in that position
 - [x] The player's finishing position shouldn't change after the race has finished.
 - [x] Vary the acceleration sound effect so that it doesn't sound so "droning"
 - [x] The starting positions of the AI players should match their lateral offsets.
