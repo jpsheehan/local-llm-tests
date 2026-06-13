@@ -452,16 +452,16 @@ function buildRoad() {
         const barrierP = p.clone().add(normal.clone().multiplyScalar(side * (ROAD_WIDTH / 2 + 0.8)));
         const barrierMat = (Math.floor(i / 2) % 2 === 0) ? barrierMatRed : barrierMatWhite;
         const barrier = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.6, 0.6), barrierMat);
-        barrier.position.set(barrierP.x, 0.3, barrierP.z);
-        barrier.rotation.y = Math.atan2(-tangent.z, tangent.x);
-        barrier.castShadow = true;
-        group.add(barrier);
-        
-        // Reflector (small cylinder on top)
-        const refMat = new THREE.MeshStandardMaterial({ color: side === 1 ? 0xff4444 : 0xffffff, emissive: side === 1 ? 0xff2222 : 0x444444, emissiveIntensity: 0.3 });
-        const ref = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), refMat);
-        ref.position.set(barrierP.x, 0.65, barrierP.z);
-        group.add(ref);
+          barrier.position.set(barrierP.x, 0.3, barrierP.z);
+          barrier.rotation.y = Math.atan2(-tangent.z, tangent.x);
+          barrier.castShadow = true;
+          group.add(barrier);
+          
+          // Reflector (small cylinder on top)
+          const refMat = new THREE.MeshStandardMaterial({ color: side === 1 ? 0xff4444 : 0xffffff, emissive: side === 1 ? 0xff2222 : 0x444444, emissiveIntensity: 0.3 });
+          const ref = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), refMat);
+          ref.position.set(barrierP.x, 0.65, barrierP.z);
+          group.add(ref);
       }
     }
   }
