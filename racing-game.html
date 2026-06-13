@@ -1942,6 +1942,18 @@ function updateCamera(dt) {
 // ─── GAME LOOP ────────────────────────────────────────────
 let lastTime = 0;
 
+function isPlayerOffTrack() {
+  const pos = playerCar.position;
+  for (let i = 0; i <= 100; i++) {
+    const tp = getTrackPosition(i / 100);
+    tp.y = 0;
+    const dx = pos.x - tp.x;
+    const dz = pos.z - tp.z;
+    if (dx * dx + dz * dz < (ROAD_WIDTH / 2 + 5) ** 2) return false;
+  }
+  return true;
+}
+
 function gameLoop(time) {
   requestAnimationFrame(gameLoop);
   
@@ -1977,6 +1989,21 @@ function gameLoop(time) {
     updatePlayer(dt);
     updateAI(dt);
     if (gameTime > 2) resolveCollisions();
+    
+    // Check if player is off-track and reset position
+    if (isPlayerOffTrack()) {
+      let closestT = 0;
+      let minDist = Infinity;
+      for (let i = 0; i < trackSamplePts.length; i++) {
+        const dist = playerCar.position.distanceTo(trackSamplePts[i]);
+        if (dist < minDist) {
+          minDist = dist;
+          closestT = i / (trackSamplePts.length - 1);
+        }
+      }
+      placeOnGrid(playerCar, closestT, 0, 0);
+      playerSpeed = 0; // Reset player speed to zero
+    }
   }
 
   if (!paused) updateRain(dt, playerCar.position.x, playerCar.position.z);
