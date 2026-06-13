@@ -605,6 +605,7 @@ const fogColor = new THREE.Color(0x87CEEB);
 const overcastFogColor = new THREE.Color(0x5A6A7A);
 
 let isRaining = false;
+let prevRaining = false;
 let rainToggleTimer = 0;
 let targetAmbientIntensity = 0.4;
 let targetHemiIntensity = 0.6;
@@ -683,6 +684,14 @@ function updateRain(dt, playerX, playerZ) {
   scene.fog.color.lerp(isRaining ? overcastFogColor : fogColor, dt * 1.5);
 
   rainSystem.visible = isRaining;
+
+  const targetCloudOpacity = isRaining ? 1 : 0;
+  cloudMat.opacity += (targetCloudOpacity * 0.85 - cloudMat.opacity) * dt * 2;
+  cloudDarkMat.opacity += (targetCloudOpacity * 0.9 - cloudDarkMat.opacity) * dt * 2;
+
+  if (isRaining && !prevRaining) Sound.startRain();
+  if (!isRaining && prevRaining) Sound.stopRain();
+  prevRaining = isRaining;
 
   if (!isRaining) return;
 
@@ -946,6 +955,9 @@ const Sound = {
   collisionBuf: null,
   prevBrake: false,
   prevCollision: false,
+  rainGain: null,
+  rainSource: null,
+  rainNode: null,
 
   init() {
     if (this.ready) return;
@@ -988,6 +1000,18 @@ const Sound = {
       this.collisionBuf = this.ctx.createBuffer(1, len, sr);
       d = this.collisionBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+
+      len = (sr * 2) | 0;
+      const rainBuf = this.ctx.createBuffer(1, len, sr);
+      d = rainBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) {
+        const t = i / sr;
+        d[i] = (Math.random() * 2 - 1) * (0.3 + 0.7 * (0.5 + 0.5 * Math.sin(t * 3.7)));
+      }
+      this.rainGain = this.ctx.createGain();
+      this.rainGain.gain.value = 0;
+      this.rainGain.connect(this.ctx.destination);
+      this.rainNode = { buf: rainBuf };
       this.ready = true;
     } catch (_) {}
   },
@@ -1008,6 +1032,24 @@ const Sound = {
   },
 
   offEngine() { if (this.ctx) { this.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03); this.lfoGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03); } },
+
+  startRain() {
+    if (!this.ctx || this.rainSource) return;
+    this.rainSource = this.ctx.createBufferSource();
+    this.rainSource.buffer = this.rainNode.buf;
+    this.rainSource.loop = true;
+    this.rainSource.connect(this.rainGain);
+    this.rainSource.start();
+    this.rainGain.gain.setTargetAtTime(0.08, this.ctx.currentTime, 0.5);
+  },
+
+  stopRain() {
+    if (!this.ctx || !this.rainSource) return;
+    this.rainGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.5);
+    const src = this.rainSource;
+    setTimeout(() => { try { src.stop(); src.disconnect(); } catch(_) {} }, 1000);
+    this.rainSource = null;
+  },
 
   _note(f, t, d, v = 0.25) {
     const o = this.ctx.createOscillator();
@@ -1073,6 +1115,8 @@ const Sound = {
     src.start();
   },
 };
+
+Sound.init();
 
 // ─── GAME STATE ────────────────────────────────────────────
 let gameTime = 0;
