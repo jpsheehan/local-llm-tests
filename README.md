@@ -2,7 +2,10 @@
 
 ## Features
 
-- [ ] AI cars should have their own racing lines so that they don't keep colliding with each other.
+- [x] AI cars should have their own racing lines so that they don't keep colliding with each other.
+- [ ] The lap times on the UI should have another digit of precision
+- [ ] Add a sound effect for colliding with other vehicles
+- [ ] Vary the acceleration sound effect so that it doesn't sound so "droning"
 - [x] Add sound effects for:
     - [x] Braking
     - [x] Accelerating

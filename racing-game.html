@@ -687,11 +687,13 @@ for (let i = 0; i < AI_COUNT; i++) {
   placeOnGrid(car, gridPositions[i].t, gridPositions[i].lateral, gridPositions[i].longitudinal);
   scene.add(car);
   
+  const laterals = [0, -4, 4];
   aiCars.push(car);
   aiData.push({
     t: gridPositions[i].pathT,
     speed: 25 + Math.random() * 15,
     baseSpeed: 25 + Math.random() * 15,
+    lateral: laterals[i],
     lap: 0,
     finished: false,
     finishTime: 0,
@@ -1123,7 +1125,21 @@ function updateAI(dt) {
     const ai = aiData[i];
     if (ai.finished) continue;
     
-    ai.t += (ai.speed / trackLength) * dt;
+    let slowdown = 1;
+    for (let j = 0; j < AI_COUNT; j++) {
+      if (i === j) continue;
+      const other = aiData[j];
+      if (other.finished) continue;
+      if (Math.abs(ai.lateral - other.lateral) < 1.8) {
+        const sameLap = ai.lap === other.lap;
+        const tGap = other.t - ai.t;
+        const ahead = sameLap && tGap > 0 && tGap < 0.02;
+        const oneLapAhead = other.lap === ai.lap + 1 && other.t > 0.98 && ai.t < 0.02;
+        if (ahead || oneLapAhead) slowdown = Math.min(slowdown, 0.4);
+      }
+    }
+    
+    ai.t += (ai.speed * slowdown / trackLength) * dt;
     if (ai.t >= 1) {
       ai.t -= 1;
       ai.lap++;
@@ -1134,10 +1150,13 @@ function updateAI(dt) {
     }
     
     const p = getTrackPosition(Math.max(0, Math.min(1, ai.t)));
+    const tangent = getTrackTangent(Math.max(0, Math.min(1, ai.t)));
+    const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
     aiCars[i].position.copy(p);
+    aiCars[i].position.x += normal.x * ai.lateral;
+    aiCars[i].position.z += normal.z * ai.lateral;
     aiCars[i].position.y = 0.15;
     
-    const tangent = getTrackTangent(Math.max(0, Math.min(1, ai.t)));
     const aiAngle = Math.atan2(tangent.x, tangent.z);
     aiCars[i].rotation.y = aiAngle;
   }
@@ -1221,6 +1240,7 @@ function resolveCollisions() {
   for (let i = 0; i < carList.length; i++) {
     for (let j = i + 1; j < carList.length; j++) {
       const a = carList[i], b = carList[j];
+      if (!a.isPlayer && !b.isPlayer) continue;
       const result = obbOverlap(a.pos, a.rot(), b.pos, b.rot());
       if (!result) continue;
 
