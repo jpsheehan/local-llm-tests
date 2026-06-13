@@ -12,7 +12,7 @@
 ## Existing Bugs
 
 - [ ] The player's wheels still spin after they have finished the race.
-- [ ] The player's position is sometimes not correct.
+- [ ] The player sometimes has to complete an extra lap.
 
 ## Fixed Bugs
 
@@ -20,3 +20,4 @@
 - [x] The angle of the barriers is wrong.
 - [x] The player is too fast.
 - [x] The game ends before the player crosses the finish line.
+- [x] The player's racing position is often not correct.

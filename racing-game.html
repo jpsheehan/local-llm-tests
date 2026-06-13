@@ -646,7 +646,7 @@ scene.add(playerCar);
 
 let playerSpeed = 0;
 let playerLap = 0;
-let playerLastCheckpoint = -1;
+let playerLastCheckpoint = 0;
 let playerCheckpointsPassed = 0;
 let playerFinished = false;
 
@@ -722,7 +722,7 @@ function restartGame() {
   placeOnGrid(playerCar, gridPositions[3].t, gridPositions[3].lateral, gridPositions[3].longitudinal);
   playerSpeed = 0;
   playerLap = 0;
-  playerLastCheckpoint = -1;
+  playerLastCheckpoint = 0;
   playerCheckpointsPassed = 0;
   playerFinished = false;
   
@@ -781,20 +781,22 @@ function getOrdinalSuffix(n) {
 function updatePositions() {
   racePositions = [];
   
-  // Player progress
-  const playerProgress = playerLap * NUM_CHECKPOINTS + playerCheckpointsPassed;
-  racePositions.push({ progress: playerProgress, isPlayer: true, finished: playerFinished });
+  // Player progress — use closest checkpoint index, same sector system as AI
+  const playerCIdx = getClosestCheckpointIndex(playerCar.position);
+  const playerProgress = playerLap * NUM_CHECKPOINTS + playerCIdx;
+  racePositions.push({ progress: playerProgress, isPlayer: true, finished: playerFinished, gridOrder: 3 });
   
   // AI progress
   for (let i = 0; i < AI_COUNT; i++) {
     const ai = aiData[i];
     const aiProgress = ai.lap * NUM_CHECKPOINTS + Math.floor(ai.t * NUM_CHECKPOINTS);
-    racePositions.push({ progress: aiProgress, isPlayer: false, finished: ai.finished });
+    racePositions.push({ progress: aiProgress, isPlayer: false, finished: ai.finished, gridOrder: i });
   }
   
   racePositions.sort((a, b) => {
     if (a.finished !== b.finished) return a.finished ? -1 : 1;
-    return b.progress - a.progress;
+    if (b.progress !== a.progress) return b.progress - a.progress;
+    return a.gridOrder - b.gridOrder;
   });
 }
 
