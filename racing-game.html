@@ -114,6 +114,7 @@ canvas { display: block; }
     A / ← Steer Left<br>
     D / → Steer Right<br>
     C Switch Camera<br>
+    P / Esc Pause<br>
     R Restart
   </div>
   <div id="lap-times-panel">
@@ -729,6 +730,7 @@ document.addEventListener('keydown', (e) => {
   if (k === 'arrowright') keys.right = true;
   if (e.key === 'r' || e.key === 'R') restartGame();
   if (e.key === 'c' || e.key === 'C') toggleCamera();
+  if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
 });
 
 document.addEventListener('keyup', (e) => {
@@ -800,6 +802,7 @@ const Sound = {
   },
 
   resume() { if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume(); },
+  suspend() { if (this.ctx && this.ctx.state === 'running') this.ctx.suspend(); },
 
   upEngine(spd) {
     if (!this.ctx) return;
@@ -884,10 +887,25 @@ const Sound = {
 let gameTime = 0;
 let gameStarted = false;
 let gameOver = false;
+let paused = false;
 let countdown = 3;
 let countdownTimer = 0;
 let messageEl = document.getElementById('message');
 let racePositions = [];
+
+function togglePause() {
+  if (gameOver || countdown > 0) return;
+  paused = !paused;
+  if (paused) {
+    Sound.offEngine();
+    Sound.suspend();
+    messageEl.textContent = 'PAUSED';
+    messageEl.classList.add('show');
+  } else {
+    Sound.resume();
+    messageEl.classList.remove('show');
+  }
+}
 
 function restartGame() {
   placeOnGrid(playerCar, gridPositions[3].t, gridPositions[3].lateral, gridPositions[3].longitudinal);
@@ -913,6 +931,7 @@ function restartGame() {
   
   gameTime = 0;
   gameOver = false;
+  paused = false;
   countdown = 3;
   countdownTimer = 0;
   messageEl.classList.remove('show');
@@ -1462,7 +1481,7 @@ function gameLoop(time) {
         setTimeout(() => messageEl.classList.remove('show'), 500);
       }
     }
-  } else {
+  } else if (!paused) {
     if (!gameOver) {
       gameTime += dt;
     }
@@ -1471,9 +1490,9 @@ function gameLoop(time) {
     if (gameTime > 2) resolveCollisions();
   }
   
-  updateCamera(dt);
-  updateHUD();
-  updateMinimap();
+  if (!paused) updateCamera(dt);
+  if (!paused) updateHUD();
+  if (!paused) updateMinimap();
   
   // Wheel rotation
   const wheelSpeed = playerSpeed * 4;

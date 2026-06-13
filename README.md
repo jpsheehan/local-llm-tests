@@ -3,6 +3,8 @@
 ## Features
 
 - [x] Allow the player to reverse their vehicle by holding the down or 'S' key after they are stopped.
+- [x] Add pause button.
+- [ ] Allow sounds to be stored in separate files.
 - [ ] Allow meshes to be stored in separate files.
 - [ ] Allow the track level to be stored in separate files.
 - [x] AI cars should have their own racing lines so that they don't keep colliding with each other.
