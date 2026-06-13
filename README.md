@@ -10,14 +10,10 @@
 - [x] Add a new first-person camera angle and make it the default. The player should be able to toggle between them with 'C'.
 - [x] Place all the cars on a starting grid with the player at the rear.
 
-## Existing Bugs
-
-- [ ] When switching between camera modes, the camera should smoothly interpolate between the two rather than snapping.
-
 ## Fixed Bugs
 
 - [x] The game sometimes doesn't detect when the player completes a lap.
-
+- [x] When switching between camera modes, the camera should smoothly interpolate between the two rather than snapping.
 - [x] The angle of the NPC cars is wrong.
 - [x] The angle of the barriers is wrong.
 - [x] The player is too fast.

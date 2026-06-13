@@ -1003,36 +1003,59 @@ function showMessage(text) {
 
 // ─── CAMERA ────────────────────────────────────────────────
 let cameraMode = 'first'; // 'third' or 'first'
+let cameraTransition = 0;
+let cameraTransProgress = 0;
+const cameraTransStartPos = new THREE.Vector3();
+const cameraTransStartLook = new THREE.Vector3();
 
 function toggleCamera() {
   cameraMode = cameraMode === 'third' ? 'first' : 'third';
+  cameraTransition = 0.4;
+  cameraTransProgress = 0;
+  cameraTransStartPos.copy(camera.position);
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  cameraTransStartLook.copy(camera.position).add(dir);
 }
 
 const camThirdOffset = new THREE.Vector3(0, 10, -16);
 const camFirstOffset = new THREE.Vector3(0, 0.85, 0.3);
 
-function updateCamera() {
-  if (cameraMode === 'first') {
-    const worldOffset = camFirstOffset.clone().applyQuaternion(
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y)
-    );
-    const desiredPos = playerCar.position.clone().add(worldOffset);
-    camera.position.copy(desiredPos);
-    const lookTarget = playerCar.position.clone().add(
+function updateCamera(dt) {
+  const isFirst = cameraMode === 'first';
+  const offset = isFirst ? camFirstOffset : camThirdOffset;
+  const worldOffset = offset.clone().applyQuaternion(
+    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y)
+  );
+  const desiredPos = playerCar.position.clone().add(worldOffset);
+
+  let desiredLook;
+  if (isFirst) {
+    desiredLook = playerCar.position.clone().add(
       new THREE.Vector3(
         Math.sin(playerCar.rotation.y),
         0,
         Math.cos(playerCar.rotation.y)
       ).multiplyScalar(100)
     );
-    lookTarget.y += 0.5;
-    camera.lookAt(lookTarget);
+    desiredLook.y += 0.5;
   } else {
-    const worldOffset = camThirdOffset.clone().applyQuaternion(
-      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y)
-    );
-    const desiredPos = playerCar.position.clone().add(worldOffset);
-    camera.position.lerp(desiredPos, Math.min(1, 0.08));
+    desiredLook = playerCar.position.clone();
+  }
+
+  if (cameraTransition > 0) {
+    cameraTransProgress += dt;
+    const t = Math.min(cameraTransProgress / cameraTransition, 1);
+    camera.position.lerpVectors(cameraTransStartPos, desiredPos, t);
+    const transitionLook = new THREE.Vector3();
+    transitionLook.lerpVectors(cameraTransStartLook, desiredLook, t);
+    camera.lookAt(transitionLook);
+    if (t >= 1) cameraTransition = 0;
+  } else if (isFirst) {
+    camera.position.copy(desiredPos);
+    camera.lookAt(desiredLook);
+  } else {
+    camera.position.lerp(desiredPos, 0.08);
     camera.lookAt(playerCar.position);
   }
 }
@@ -1074,7 +1097,7 @@ function gameLoop(time) {
     updateAI(dt);
   }
   
-  updateCamera();
+  updateCamera(dt);
   updateHUD();
   updateMinimap();
   
