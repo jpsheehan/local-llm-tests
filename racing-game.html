@@ -1500,8 +1500,8 @@ function updatePlayer(dt) {
   playerCar.position.z += forward.z * playerSpeed * dt;
   
   // Keep on ground
-  const playerTrackY = _getTrackT(playerCar.position);
-  playerCar.position.y = getTrackPosition(playerTrackY).y + 0.15;
+  const targetY = getTrackPosition(_getTrackT(playerCar.position)).y + 0.15;
+  playerCar.position.y += (targetY - playerCar.position.y) * Math.min(1, dt * 25);
   
   // Slight tilt in turns
   if (!gameOver) {
@@ -1566,13 +1566,27 @@ function updatePlayer(dt) {
 }
 
 function _getTrackT(pos) {
-  let bestT = 0;
+  let bestIdx = 0;
   let bestDist = Infinity;
-  for (let s = 0; s < 200; s++) {
-    const t = s / 200;
-    const p = trackCurve.getPoint(t);
-    const d = pos.distanceToSquared(p);
-    if (d < bestDist) { bestDist = d; bestT = t; }
+  const pts = trackSamplePts;
+  for (let i = 0; i < pts.length; i++) {
+    const dx = pos.x - pts[i].x;
+    const dz = pos.z - pts[i].z;
+    const d = dx * dx + dz * dz;
+    if (d < bestDist) { bestDist = d; bestIdx = i; }
+  }
+  let bestT = bestIdx / (pts.length - 1);
+  let step = 1 / (pts.length - 1);
+  for (let iter = 0; iter < 3; iter++) {
+    step /= 2;
+    const t0 = Math.max(0, bestT - step);
+    const p0 = trackCurve.getPoint(t0);
+    const d0 = pos.distanceToSquared(p0);
+    if (d0 < bestDist) { bestDist = d0; bestT = t0; }
+    const t1 = Math.min(1, bestT + step);
+    const p1 = trackCurve.getPoint(t1);
+    const d1 = pos.distanceToSquared(p1);
+    if (d1 < bestDist) { bestDist = d1; bestT = t1; }
   }
   return bestT;
 }
