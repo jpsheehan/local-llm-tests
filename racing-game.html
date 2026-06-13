@@ -1079,12 +1079,14 @@ function gameLoop(time) {
   updateMinimap();
   
   // Wheel rotation
-  const wheelSpeed = playerSpeed * 4;
-  playerCar.children.forEach(child => {
-    if (child.type === 'Group') {
-      child.rotation.x += wheelSpeed * dt;
-    }
-  });
+  if (!gameOver) {
+    const wheelSpeed = playerSpeed * 4;
+    playerCar.children.forEach(child => {
+      if (child.type === 'Group') {
+        child.rotation.x += wheelSpeed * dt;
+      }
+    });
+  }
   
   renderer.render(scene, camera);
 }
