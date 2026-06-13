@@ -81,6 +81,32 @@ canvas { display: block; }
   font-size: 12px; opacity: 0.35; text-align: right; line-height: 1.6;
 }
 
+#track-selector {
+  position: absolute; top: 125px; left: 40px;
+  pointer-events: auto;
+}
+#track-selector select {
+  background: rgba(0,0,0,0.5);
+  color: white;
+  border: 1px solid rgba(255,255,255,0.2);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 13px;
+  font-family: inherit;
+  cursor: pointer;
+}
+#track-selector select:focus { outline: none; border-color: rgba(255,255,255,0.5); }
+#track-selector select option { background: #222; }
+
+#track-name {
+  position: absolute; top: 95px; left: 40px;
+  font-size: 16px; font-weight: 600;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+  opacity: 0.5;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
 #minimap {
   position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
   width: 140px; height: 140px; border-radius: 50%;
@@ -115,12 +141,17 @@ canvas { display: block; }
     D / → Steer Right<br>
     C Switch Camera<br>
     P / Esc Pause<br>
-    R Restart
+    R Restart<br>
+    T Next Track
+  </div>
+  <div id="track-selector">
+    <select id="track-select"></select>
   </div>
   <div id="lap-times-panel">
     <div id="lap-times-title">Lap Times</div>
     <div id="lap-times-list"></div>
   </div>
+  <div id="track-name"></div>
   <div id="message"></div>
   <div id="minimap"><canvas id="minimap-canvas" width="140" height="140"></canvas></div>
 </div>
@@ -132,6 +163,12 @@ canvas { display: block; }
   }
 }
 </script>
+
+<script>
+const TRACKS = {};
+</script>
+<script src="tracks/circuit.js"></script>
+<script src="tracks/sporting.js"></script>
 
 <script type="module">
 import * as THREE from 'three';
@@ -150,22 +187,8 @@ const NUM_CHECKPOINTS = 10;
 const AI_COUNT = 0;
 
 // ─── TRACK ─────────────────────────────────────────────────
-const trackPoints = [
-  new THREE.Vector3(0, 0, -55),
-  new THREE.Vector3(40, 0, -58),
-  new THREE.Vector3(68, 0, -40),
-  new THREE.Vector3(75, 0, 0),
-  new THREE.Vector3(68, 0, 40),
-  new THREE.Vector3(40, 0, 58),
-  new THREE.Vector3(0, 0, 55),
-  new THREE.Vector3(-35, 0, 45),
-  new THREE.Vector3(-55, 0, 20),
-  new THREE.Vector3(-58, 0, -15),
-  new THREE.Vector3(-45, 0, -40),
-  new THREE.Vector3(-20, 0, -52),
-];
-
-const trackCurve = new THREE.CatmullRomCurve3(trackPoints, true, 'catmullrom', 0.5);
+let trackPoints = [];
+let trackCurve = null;
 
 function getTrackTangent(t) {
   return trackCurve.getTangent(t).normalize();
@@ -175,28 +198,73 @@ function getTrackPosition(t) {
   return trackCurve.getPoint(t);
 }
 
-// Compute track length
-const NUM_SAMPLES = 500;
 let trackLength = 0;
-const trackSamplePts = [];
-for (let i = 0; i <= NUM_SAMPLES; i++) {
-  const t = i / NUM_SAMPLES;
-  trackSamplePts.push(trackCurve.getPoint(t));
-  if (i > 0) {
-    trackLength += trackSamplePts[i].distanceTo(trackSamplePts[i - 1]);
+let trackSamplePts = [];
+let checkpointPositions = [];
+let roadGroup = null;
+let treeGroups = [];
+
+function loadTrack(trackId) {
+  const data = TRACKS[trackId];
+  if (!data) return;
+
+  // Remove old track objects
+  if (roadGroup) { scene.remove(roadGroup); roadGroup = null; }
+  for (const t of treeGroups) { scene.remove(t); }
+  treeGroups = [];
+
+  // Build new track
+  trackPoints = data.points.map(p => new THREE.Vector3(p.x, 0, p.z));
+  trackCurve = new THREE.CatmullRomCurve3(trackPoints, true, 'catmullrom', 0.5);
+
+  const NUM_SAMPLES = 500;
+  trackLength = 0;
+  trackSamplePts = [];
+  for (let i = 0; i <= NUM_SAMPLES; i++) {
+    const t = i / NUM_SAMPLES;
+    trackSamplePts.push(trackCurve.getPoint(t));
+    if (i > 0) {
+      trackLength += trackSamplePts[i].distanceTo(trackSamplePts[i - 1]);
+    }
   }
+
+  // Checkpoints
+  checkpointPositions = [];
+  for (let i = 0; i < NUM_CHECKPOINTS; i++) {
+    const t = i / NUM_CHECKPOINTS;
+    checkpointPositions.push(getTrackPosition(t));
+  }
+
+  // Build road
+  roadGroup = buildRoad();
+  scene.add(roadGroup);
+
+  // Place trees
+  for (let i = 0; i < 200; i++) {
+    const angle = Math.random() * Math.PI * 2;
+    const dist = 40 + Math.random() * 130;
+    const x = Math.cos(angle) * dist;
+    const z = Math.sin(angle) * dist;
+    if (!isOnTrack(x, z)) {
+      const scale = 0.6 + Math.random() * 0.8;
+      const tree = createTree(x, z, scale);
+      scene.add(tree);
+      treeGroups.push(tree);
+    }
+  }
+
+  return data;
 }
 
-// Checkpoints (evenly spaced along track)
-const checkpointTs = [];
-const checkpointPositions = [];
-const checkpointNormals = [];
-for (let i = 0; i < NUM_CHECKPOINTS; i++) {
-  const t = i / NUM_CHECKPOINTS;
-  checkpointTs.push(t);
-  checkpointPositions.push(getTrackPosition(t));
-  const tangent = getTrackTangent(t);
-  checkpointNormals.push(new THREE.Vector3(-tangent.z, 0, tangent.x).normalize());
+// Place trees around track (avoiding the track itself)
+function isOnTrack(x, z) {
+  const p = new THREE.Vector3(x, 0, z);
+  for (let i = 0; i <= 100; i++) {
+    const tp = getTrackPosition(i / 100);
+    tp.y = 0;
+    if (p.distanceTo(tp) < ROAD_WIDTH / 2 + 3) return true;
+  }
+  return false;
 }
 
 // ─── SCENE SETUP ──────────────────────────────────────────
@@ -465,9 +533,6 @@ function buildRoad() {
   return group;
 }
 
-const roadGroup = buildRoad();
-scene.add(roadGroup);
-
 // ─── TREES ─────────────────────────────────────────────────
 function createTree(x, z, scale) {
   const group = new THREE.Group();
@@ -551,27 +616,7 @@ for (const m of mountainRing) {
   scene.add(createMountain(x, z, m.h, m.r));
 }
 
-// Place trees around track (avoiding the track itself)
-function isOnTrack(x, z) {
-  const p = new THREE.Vector3(x, 0, z);
-  for (let i = 0; i <= 100; i++) {
-    const tp = getTrackPosition(i / 100);
-    tp.y = 0;
-    if (p.distanceTo(tp) < ROAD_WIDTH / 2 + 3) return true;
-  }
-  return false;
-}
-
-for (let i = 0; i < 200; i++) {
-  const angle = Math.random() * Math.PI * 2;
-  const dist = 40 + Math.random() * 130;
-  const x = Math.cos(angle) * dist;
-  const z = Math.sin(angle) * dist;
-  if (!isOnTrack(x, z)) {
-    const scale = 0.6 + Math.random() * 0.8;
-    scene.add(createTree(x, z, scale));
-  }
-}
+loadTrack('circuit');
 
 // ─── WEATHER ────────────────────────────────────────────────
 const RAIN_AREA = 200;
@@ -930,6 +975,12 @@ document.addEventListener('keydown', (e) => {
   if (k === 'arrowright') keys.right = true;
   if (e.key === 'r' || e.key === 'R') restartGame();
   if (e.key === 'c' || e.key === 'C') toggleCamera();
+  if (e.key === 't' || e.key === 'T') {
+    const ids = Object.keys(TRACKS);
+    const idx = (ids.indexOf(currentTrackId) + 1) % ids.length;
+    trackSelect.value = ids[idx];
+    switchTrack(ids[idx]);
+  }
   if (e.key === 'p' || e.key === 'P' || e.key === 'Escape') togglePause();
 });
 
@@ -1886,6 +1937,31 @@ window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ─── TRACK SELECTOR ─────────────────────────────────────────
+let currentTrackId = 'circuit';
+const trackNameEl = document.getElementById('track-name');
+trackNameEl.textContent = TRACKS[currentTrackId].name;
+
+function switchTrack(trackId) {
+  if (trackId === currentTrackId) return;
+  currentTrackId = trackId;
+  trackNameEl.textContent = TRACKS[trackId].name;
+  loadTrack(trackId);
+  restartGame();
+}
+
+const trackSelect = document.getElementById('track-select');
+for (const id of Object.keys(TRACKS)) {
+  const opt = document.createElement('option');
+  opt.value = id;
+  opt.textContent = TRACKS[id].name;
+  if (id === currentTrackId) opt.selected = true;
+  trackSelect.appendChild(opt);
+}
+trackSelect.addEventListener('change', () => {
+  switchTrack(trackSelect.value);
 });
 
 // ─── START ────────────────────────────────────────────────
