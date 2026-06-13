@@ -21,7 +21,7 @@
 
 ## Bugs
 
-- [ ] The braking sound effect is too high pitched.
+- [x] The braking sound effect is too high pitched.
 - [ ] The acceleration sound effect is too loud.
 - [x] The collision detection should be more permissive. Collisions currently occur when the player is near but not touching another car.
 - [ ] The AI cars should be allowed to be knocked off their racing line if they're in a collision

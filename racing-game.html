@@ -853,9 +853,12 @@ const Sound = {
     if (!this.ctx) return;
     const src = this.ctx.createBufferSource();
     src.buffer = this.brakeBuf;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.value = 300;
     const g = this.ctx.createGain();
-    g.gain.value = 0.12;
-    src.connect(g); g.connect(this.ctx.destination);
+    g.gain.value = 0.10;
+    src.connect(f); f.connect(g); g.connect(this.ctx.destination);
     src.start();
   },
 
