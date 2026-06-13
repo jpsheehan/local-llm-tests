@@ -742,7 +742,10 @@ const Sound = {
   ctx: null,
   ready: false,
   osc: null,
+  osc2: null,
   gain: null,
+  lfo: null,
+  lfoGain: null,
   brakeBuf: null,
   prevBrake: false,
 
@@ -752,12 +755,30 @@ const Sound = {
       this.ctx = new (window.AudioContext || window.webkitAudioContext)();
       this.gain = this.ctx.createGain();
       this.gain.gain.value = 0;
+
       this.osc = this.ctx.createOscillator();
       this.osc.type = 'sawtooth';
       this.osc.frequency.value = 60;
       this.osc.connect(this.gain);
-      this.gain.connect(this.ctx.destination);
+
+      this.osc2 = this.ctx.createOscillator();
+      this.osc2.type = 'sawtooth';
+      this.osc2.frequency.value = 63;
+      this.osc2.connect(this.gain);
+
+      this.lfo = this.ctx.createOscillator();
+      this.lfo.type = 'sine';
+      this.lfo.frequency.value = 0;
+      this.lfoGain = this.ctx.createGain();
+      this.lfoGain.gain.value = 0;
+      this.lfo.connect(this.lfoGain);
+      this.lfoGain.connect(this.gain.gain);
+
       this.osc.start();
+      this.osc2.start();
+      this.lfo.start();
+
+      this.gain.connect(this.ctx.destination);
 
       const sr = this.ctx.sampleRate;
       const len = (sr * 0.08) | 0;
@@ -775,10 +796,14 @@ const Sound = {
     const f = 60 + Math.min(spd, 50) * 1.8;
     const v = Math.min(spd / 35, 0.10);
     this.osc.frequency.setTargetAtTime(f, this.ctx.currentTime, 0.06);
+    this.osc2.frequency.setTargetAtTime(f + 4, this.ctx.currentTime, 0.06);
     this.gain.gain.setTargetAtTime(v, this.ctx.currentTime, 0.06);
+    const lfoRate = 20 + Math.min(spd, 50) * 0.8;
+    this.lfo.frequency.setTargetAtTime(lfoRate, this.ctx.currentTime, 0.06);
+    this.lfoGain.gain.setTargetAtTime(v * 0.3, this.ctx.currentTime, 0.06);
   },
 
-  offEngine() { if (this.ctx) this.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03); },
+  offEngine() { if (this.ctx) { this.gain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03); this.lfoGain.gain.setTargetAtTime(0, this.ctx.currentTime, 0.03); } },
 
   _note(f, t, d, v = 0.25) {
     const o = this.ctx.createOscillator();

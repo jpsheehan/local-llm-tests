@@ -21,7 +21,7 @@
 ## Bugs
 
 - [x] The player's finishing position shouldn't change after the race has finished.
-- [ ] Vary the acceleration sound effect so that it doesn't sound so "droning"
+- [x] Vary the acceleration sound effect so that it doesn't sound so "droning"
 - [x] The starting positions of the AI players should match their lateral offsets.
 - [x] After colliding, the AI cars are not able to go faster than they were when they stopped colliding.
 - [x] The player's speed is still set to the speed they were going when they finish the race rather than zero.
