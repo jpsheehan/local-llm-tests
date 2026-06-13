@@ -5,7 +5,7 @@
 - [x] AI cars should have their own racing lines so that they don't keep colliding with each other.
 - [ ] The lap times on the UI should have another digit of precision
 - [ ] Add a sound effect for colliding with other vehicles
-- [ ] Vary the acceleration sound effect so that it doesn't sound so "droning"
+- [ ] Allow the player to reverse their vehicle by holding the down or 'S' key after they are stopped.
 - [x] Add sound effects for:
     - [x] Braking
     - [x] Accelerating
@@ -20,6 +20,8 @@
 
 ## Bugs
 
+- [x] The player's finishing position shouldn't change after the race has finished.
+- [ ] Vary the acceleration sound effect so that it doesn't sound so "droning"
 - [x] The starting positions of the AI players should match their lateral offsets.
 - [x] After colliding, the AI cars are not able to go faster than they were when they stopped colliding.
 - [x] The player's speed is still set to the speed they were going when they finish the race rather than zero.

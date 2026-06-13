@@ -920,6 +920,7 @@ function getOrdinalSuffix(n) {
 }
 
 function updatePositions() {
+  if (gameOver && racePositions.length) return;
   racePositions = [];
   
   // Player progress — use closest checkpoint index, same sector system as AI
@@ -1089,6 +1090,7 @@ function updatePlayer(dt) {
         playerFinished = true;
         gameOver = true;
         playerSpeed = 0;
+        racePositions.length = 0;
         showMessage('RACE COMPLETE!');
         Sound.finish();
       } else if (playerLap === TOTAL_LAPS - 1) {
