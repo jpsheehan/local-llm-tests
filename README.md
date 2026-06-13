@@ -20,6 +20,8 @@
 
 ## Bugs
 
+- [x] The starting positions of the AI players should match their lateral offsets.
+- [x] After colliding, the AI cars are not able to go faster than they were when they stopped colliding.
 - [x] The player's speed is still set to the speed they were going when they finish the race rather than zero.
 - [x] The game sometimes doesn't detect when the player completes a lap.
 - [x] When switching between camera modes, the camera should smoothly interpolate between the two rather than snapping.

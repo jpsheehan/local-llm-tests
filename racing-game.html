@@ -645,8 +645,8 @@ function createCar(color, isPlayer = false) {
 const gridSpacing = 3;
 const gridPositions = [
   { t: 1.0, lateral: 0, longitudinal: 0, pathT: 0.000 },        // AI 0 — pole (at start line)
-  { t: 1.0, lateral: -2.2, longitudinal: -gridSpacing, pathT: 0.003 },  // AI 1 — row 2 left
-  { t: 1.0, lateral: 2.2, longitudinal: -gridSpacing, pathT: 0.006 },   // AI 2 — row 2 right
+  { t: 1.0, lateral: -4, longitudinal: -gridSpacing, pathT: 0.003 },  // AI 1 — row 2 left
+  { t: 1.0, lateral: 4, longitudinal: -gridSpacing, pathT: 0.006 },   // AI 2 — row 2 right
   { t: 1.0, lateral: 0, longitudinal: -gridSpacing * 2, pathT: 0.009 }, // Player — back row
 ];
 
@@ -1139,6 +1139,9 @@ function updateAI(dt) {
       }
     }
     
+    if (ai.speed < ai.baseSpeed) {
+      ai.speed = Math.min(ai.speed + 20 * dt, ai.baseSpeed);
+    }
     ai.t += (ai.speed * slowdown / trackLength) * dt;
     if (ai.t >= 1) {
       ai.t -= 1;
