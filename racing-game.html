@@ -885,18 +885,6 @@ function updateMinimap() {
     minimapCtx.lineWidth = 1;
     minimapCtx.stroke();
   }
-  
-  // Direction indicator
-  {
-    const angle = -playerCar.rotation.y;
-    const [mx, my] = worldToMap(playerCar.position.x, playerCar.position.z);
-    minimapCtx.beginPath();
-    minimapCtx.moveTo(mx + Math.sin(angle) * 6, my + Math.cos(angle) * 6);
-    minimapCtx.lineTo(mx, my);
-    minimapCtx.strokeStyle = '#ffffff';
-    minimapCtx.lineWidth = 1.5;
-    minimapCtx.stroke();
-  }
 }
 
 // ─── PHYSICS UPDATE ───────────────────────────────────────

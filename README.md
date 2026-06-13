@@ -3,6 +3,7 @@
 ## Feature Requests
 
 - [ ] Add a list of lap times to the UI.
+- [ ] Add collision detection
 
 ## Features Completed
 
@@ -11,7 +12,7 @@
 
 ## Existing Bugs
 
-- [ ] The minimap has a little white line on the player's circle. Remove it.
+- [ ] When switching between camera modes, the camera should smoothly interpolate between the two rather than snapping.
 
 ## Fixed Bugs
 
@@ -23,3 +24,4 @@
 - [x] The game ends before the player crosses the finish line.
 - [x] The player's racing position is often not correct.
 - [x] The player's wheels still spin after they have finished the race.
+- [x] The minimap has a little white line on the player's circle.
