@@ -508,7 +508,7 @@ function buildRoad() {
         const barrierP = p.clone().add(normal.clone().multiplyScalar(side * (ROAD_WIDTH / 2 + 0.8)));
         const barrierMat = (Math.floor(i / 2) % 2 === 0) ? barrierMatRed : barrierMatWhite;
         const barrier = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.6, 0.6), barrierMat);
-          barrier.position.set(barrierP.x, p.y + 0.3, barrierP.z);
+          barrier.position.set(barrierP.x, p.y + 0.1, barrierP.z);
           barrier.rotation.y = Math.atan2(-tangent.z, tangent.x);
           barrier.castShadow = true;
           group.add(barrier);
@@ -516,7 +516,7 @@ function buildRoad() {
           // Reflector (small cylinder on top)
           const refMat = new THREE.MeshStandardMaterial({ color: side === 1 ? 0xff4444 : 0xffffff, emissive: side === 1 ? 0xff2222 : 0x444444, emissiveIntensity: 0.3 });
           const ref = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), refMat);
-          ref.position.set(barrierP.x, p.y + 0.65, barrierP.z);
+          ref.position.set(barrierP.x, p.y + 0.45, barrierP.z);
           group.add(ref);
       }
     }
@@ -666,7 +666,7 @@ const mountainRing = [
   { a: 5.4, d: 250, h: 65, r: 33 },
   { a: 5.8, d: 270, h: 90, r: 42 },
 ];
-loadTrack('circuit');
+loadTrack('sporting');
 for (const m of mountainRing) {
   const x = Math.cos(m.a) * m.d;
   const z = Math.sin(m.a) * m.d;
@@ -768,47 +768,26 @@ for (let i = 0; i < CLOUD_COUNT; i++) {
 }
 
 function updateRain(dt, playerX, playerZ) {
-  rainToggleTimer -= dt;
-  if (rainToggleTimer <= 0) {
-    isRaining = !isRaining;
-    rainToggleTimer = 20 + Math.random() * 40;
-  }
+  isRaining = false;
 
-  targetAmbientIntensity = isRaining ? 0.15 : 0.4;
-  targetHemiIntensity = isRaining ? 0.25 : 0.6;
-  targetSunIntensity = isRaining ? 0.6 : 2.5;
+  targetAmbientIntensity = 0.4;
+  targetHemiIntensity = 0.6;
+  targetSunIntensity = 2.5;
 
   ambient.intensity += (targetAmbientIntensity - ambient.intensity) * dt * 2;
   hemi.intensity += (targetHemiIntensity - hemi.intensity) * dt * 2;
   sun.intensity += (targetSunIntensity - sun.intensity) * dt * 2;
 
-  scene.background.lerp(isRaining ? overcastColor : skyColor, dt * 1.5);
-  scene.fog.color.lerp(isRaining ? overcastFogColor : fogColor, dt * 1.5);
+  scene.background.lerp(skyColor, dt * 1.5);
+  scene.fog.color.lerp(fogColor, dt * 1.5);
 
-  rainSystem.visible = isRaining;
+  rainSystem.visible = false;
 
-  const targetCloudOpacity = isRaining ? 1 : 0;
-  cloudMat.opacity += (targetCloudOpacity * 0.85 - cloudMat.opacity) * dt * 2;
-  cloudDarkMat.opacity += (targetCloudOpacity * 0.9 - cloudDarkMat.opacity) * dt * 2;
+  cloudMat.opacity += (0 - cloudMat.opacity) * dt * 2;
+  cloudDarkMat.opacity += (0 - cloudDarkMat.opacity) * dt * 2;
 
-  if (isRaining && !prevRaining) Sound.startRain();
-  if (!isRaining && prevRaining) Sound.stopRain();
-  prevRaining = isRaining;
-
-  if (!isRaining) return;
-
-  const pos = rainSystem.geometry.attributes.position.array;
-  for (let i = 0; i < RAIN_COUNT; i++) {
-    pos[i * 3] += (Math.random() - 0.5) * 0.5;
-    pos[i * 3 + 1] -= rainSpeeds[i] * dt;
-    pos[i * 3 + 2] += (Math.random() - 0.5) * 0.5;
-    if (pos[i * 3 + 1] < -1) {
-      pos[i * 3] = playerX + (Math.random() - 0.5) * RAIN_AREA * 2;
-      pos[i * 3 + 1] = 40 + Math.random() * 10;
-      pos[i * 3 + 2] = playerZ + (Math.random() - 0.5) * RAIN_AREA * 2;
-    }
-  }
-  rainSystem.geometry.attributes.position.needsUpdate = true;
+  if (prevRaining) Sound.stopRain();
+  prevRaining = false;
 }
 
 // ─── CAR FACTORY ───────────────────────────────────────────
@@ -1500,9 +1479,10 @@ function updatePlayer(dt) {
   playerCar.position.z += forward.z * playerSpeed * dt;
   
   // Keep on ground
-  const targetY = getTrackPosition(_getTrackT(playerCar.position)).y + 0.15;
+  const trackT = _getTrackT(playerCar.position);
+  const targetY = getTrackPosition(trackT).y + 0.15;
   playerCar.position.y += (targetY - playerCar.position.y) * Math.min(1, dt * 25);
-  
+
   // Slight tilt in turns
   if (!gameOver) {
     let targetRoll = 0;
@@ -1515,6 +1495,11 @@ function updatePlayer(dt) {
     const roll = playerCar.rotation.z || 0;
     playerCar.rotation.z = roll + (targetRoll - roll) * Math.min(1, dt * 8);
   }
+
+  // Pitch to match road slope
+  const tangent = getTrackTangent(trackT);
+  const pitch = -Math.atan2(tangent.y, Math.sqrt(tangent.x * tangent.x + tangent.z * tangent.z));
+  playerCar.rotation.x += (pitch - playerCar.rotation.x) * Math.min(1, dt * 15);
   
   // Start/finish line crossing detection (along-track direction)
   const sfPos = checkpointPositions[0];
@@ -1742,6 +1727,9 @@ function updateAI(dt) {
     car.position.x += normal0.x * ai.currentLateral + ai.driftOffset.x;
     car.position.z += normal0.z * ai.currentLateral + ai.driftOffset.z;
     car.position.y = p.y + 0.15;
+    // Pitch to match road slope
+    const pitch = -Math.atan2(tangent0.y, Math.sqrt(tangent0.x * tangent0.x + tangent0.z * tangent0.z));
+    car.rotation.x += (pitch - (car.rotation.x || 0)) * Math.min(1, 6 * dt);
     ai.driftOffset.multiplyScalar(0.97);
 
     // Smoothed lateral velocity
@@ -1912,21 +1900,15 @@ const camFirstOffset = new THREE.Vector3(0, 0.85, 0.3);
 function updateCamera(dt) {
   const isFirst = cameraMode === 'first';
   const offset = isFirst ? camFirstOffset : camThirdOffset;
-  const worldOffset = offset.clone().applyQuaternion(
-    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y)
-  );
+  const carQuat = playerCar.quaternion;
+  const yawQuat = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y);
+  const worldOffset = offset.clone().applyQuaternion(isFirst ? carQuat : yawQuat);
   const desiredPos = playerCar.position.clone().add(worldOffset);
 
   let desiredLook;
   if (isFirst) {
-    desiredLook = playerCar.position.clone().add(
-      new THREE.Vector3(
-        Math.sin(playerCar.rotation.y),
-        0,
-        Math.cos(playerCar.rotation.y)
-      ).multiplyScalar(100)
-    );
-    desiredLook.y += 0.5;
+    const forward = new THREE.Vector3(0, 0, 1).applyQuaternion(carQuat);
+    desiredLook = playerCar.position.clone().add(forward.multiplyScalar(100));
   } else {
     desiredLook = playerCar.position.clone();
   }
@@ -1941,7 +1923,8 @@ function updateCamera(dt) {
     if (t >= 1) cameraTransition = 0;
   } else if (isFirst) {
     camera.position.copy(desiredPos);
-    camera.lookAt(desiredLook);
+    const flip = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+    camera.quaternion.copy(playerCar.quaternion.clone().multiply(flip));
   } else {
     camera.position.lerp(desiredPos, 0.08);
     camera.lookAt(playerCar.position);
@@ -2012,7 +1995,7 @@ window.addEventListener('resize', () => {
 });
 
 // ─── TRACK SELECTOR ─────────────────────────────────────────
-let currentTrackId = 'circuit';
+let currentTrackId = 'sporting';
 const trackNameEl = document.getElementById('track-name');
 trackNameEl.textContent = TRACKS[currentTrackId].name;
 
