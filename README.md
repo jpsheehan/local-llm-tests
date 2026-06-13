@@ -26,7 +26,7 @@
 
 ## Bugs
 
-- [ ] The player should not be allowed to reverse back over the finish line to cheat
+- [x] The player should not be allowed to reverse back over the finish line to cheat
 - [x] The braking sound effect is too high pitched.
 - [x] The acceleration sound effect is too loud.
 - [x] The collision detection should be more permissive. Collisions currently occur when the player is near but not touching another car.

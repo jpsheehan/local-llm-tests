@@ -1186,7 +1186,7 @@ function updatePlayer(dt) {
   const toCar = playerCar.position.clone().sub(sfPos);
   const along = toCar.dot(sfTan);
 
-  if (playerPrevAlong < 0 && along >= 0) {
+  if (playerPrevAlong < 0 && along >= 0 && playerSpeed > 0 && (playerFinishCrossings === 0 || playerCheckpointsPassed >= NUM_CHECKPOINTS / 2)) {
     playerFinishCrossings++;
     if (playerFinishCrossings > 1) {
       playerLapTimes.push(gameTime - playerLastLapTime);
