@@ -943,8 +943,9 @@ function updatePlayer(dt) {
   const cIdx = getClosestCheckpointIndex(playerCar.position);
   const cpPos = checkpointPositions[cIdx];
   const dist = playerCar.position.distanceTo(cpPos);
+  const detectDist = cIdx === 0 ? 4.5 : ROAD_WIDTH * 0.8;
   
-  if (dist < ROAD_WIDTH * 0.8) {
+  if (dist < detectDist) {
     if (cIdx === 0 && playerCheckpointsPassed > NUM_CHECKPOINTS * 0.7) {
       // Crossed start/finish (checkpoint 0 after passing most checkpoints)
       if (playerLastCheckpoint !== cIdx) {
