@@ -2,7 +2,7 @@
 
 ## Feature Requests
 
-- [ ] Add collision detection
+- [x] Add collision detection
 - [ ] Add sound effects for:
     - [ ] Braking
     - [ ] Accelerating
