@@ -96,6 +96,7 @@ canvas { display: block; }
     S / ↓ Brake<br>
     A / ← Steer Left<br>
     D / → Steer Right<br>
+    C Switch Camera<br>
     R Restart
   </div>
   <div id="message"></div>
@@ -696,6 +697,7 @@ document.addEventListener('keydown', (e) => {
   if (k === 'arrowleft') keys.left = true;
   if (k === 'arrowright') keys.right = true;
   if (e.key === 'r' || e.key === 'R') restartGame();
+  if (e.key === 'c' || e.key === 'C') toggleCamera();
 });
 
 document.addEventListener('keyup', (e) => {
@@ -997,26 +999,39 @@ function showMessage(text) {
 }
 
 // ─── CAMERA ────────────────────────────────────────────────
-const cameraOffset = new THREE.Vector3(0, 10, -16);
+let cameraMode = 'first'; // 'third' or 'first'
+
+function toggleCamera() {
+  cameraMode = cameraMode === 'third' ? 'first' : 'third';
+}
+
+const camThirdOffset = new THREE.Vector3(0, 10, -16);
+const camFirstOffset = new THREE.Vector3(0, 0.85, 0.3);
 
 function updateCamera() {
-  const targetPos = playerCar.position.clone();
-  
-  // Camera offset in car's local space
-  const quat = new THREE.Quaternion().setFromUnitVectors(
-    new THREE.Vector3(0, 0, 1),
-    new THREE.Vector3(0, 0, 1).applyAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y)
-  );
-  
-  const worldOffset = cameraOffset.clone().applyQuaternion(
-    new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y)
-  );
-  
-  const desiredPos = targetPos.clone().add(worldOffset);
-  
-  // Smooth camera follow
-  camera.position.lerp(desiredPos, Math.min(1, 0.08));
-  camera.lookAt(targetPos);
+  if (cameraMode === 'first') {
+    const worldOffset = camFirstOffset.clone().applyQuaternion(
+      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y)
+    );
+    const desiredPos = playerCar.position.clone().add(worldOffset);
+    camera.position.copy(desiredPos);
+    const lookTarget = playerCar.position.clone().add(
+      new THREE.Vector3(
+        Math.sin(playerCar.rotation.y),
+        0,
+        Math.cos(playerCar.rotation.y)
+      ).multiplyScalar(100)
+    );
+    lookTarget.y += 0.5;
+    camera.lookAt(lookTarget);
+  } else {
+    const worldOffset = camThirdOffset.clone().applyQuaternion(
+      new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), playerCar.rotation.y)
+    );
+    const desiredPos = playerCar.position.clone().add(worldOffset);
+    camera.position.lerp(desiredPos, Math.min(1, 0.08));
+    camera.lookAt(playerCar.position);
+  }
 }
 
 // ─── GAME LOOP ────────────────────────────────────────────
