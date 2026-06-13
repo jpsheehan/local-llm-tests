@@ -1233,7 +1233,7 @@ const _cDiff = new THREE.Vector3();
 const _cCorner = new THREE.Vector3();
 
 function obbOverlap(pos1, rot1, pos2, rot2) {
-  const hw = 0.9, hl = 2.1;
+  const hw = 0.7, hl = 1.7;
   const c1 = Math.cos(rot1), s1 = Math.sin(rot1);
   const c2 = Math.cos(rot2), s2 = Math.sin(rot2);
 
@@ -1311,7 +1311,7 @@ function resolveCollisions() {
 
       Sound.collision();
       const n = result.normal;
-      const push = result.overlap * 0.5 + 0.05;
+      const push = result.overlap * 0.5;
       a.pos.addScaledVector(n, -push);
       b.pos.addScaledVector(n, push);
 
