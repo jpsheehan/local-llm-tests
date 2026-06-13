@@ -203,6 +203,7 @@ let trackSamplePts = [];
 let checkpointPositions = [];
 let roadGroup = null;
 let treeGroups = [];
+let groundBaseHeight = -0.05;
 
 function loadTrack(trackId) {
   const data = TRACKS[trackId];
@@ -214,7 +215,12 @@ function loadTrack(trackId) {
   treeGroups = [];
 
   // Build new track
-  trackPoints = data.points.map(p => new THREE.Vector3(p.x, 0, p.z));
+  trackPoints = data.points.map(p => new THREE.Vector3(p.x, p.y || 0, p.z));
+
+  // Compute ground base height so terrain stays below the lowest part of the track
+  let minTy = Infinity;
+  for (const p of trackPoints) if (p.y < minTy) minTy = p.y;
+  groundBaseHeight = Math.min(-0.05, minTy - 1);
   trackCurve = new THREE.CatmullRomCurve3(trackPoints, true, 'catmullrom', 0.5);
 
   const NUM_SAMPLES = 500;
@@ -239,6 +245,9 @@ function loadTrack(trackId) {
   roadGroup = buildRoad();
   scene.add(roadGroup);
 
+  // Update terrain to match track
+  updateGround();
+
   // Place trees
   for (let i = 0; i < 200; i++) {
     const angle = Math.random() * Math.PI * 2;
@@ -248,6 +257,7 @@ function loadTrack(trackId) {
     if (!isOnTrack(x, z)) {
       const scale = 0.6 + Math.random() * 0.8;
       const tree = createTree(x, z, scale);
+      tree.position.y = getGroundHeight(x, z);
       scene.add(tree);
       treeGroups.push(tree);
     }
@@ -265,6 +275,24 @@ function isOnTrack(x, z) {
     if (p.distanceTo(tp) < ROAD_WIDTH / 2 + 3) return true;
   }
   return false;
+}
+
+function getGroundHeight(x, z) {
+  let bestDist = Infinity;
+  let bestY = -0.05;
+  for (let s = 0; s <= 200; s++) {
+    const t = s / 200;
+    const tp = getTrackPosition(t);
+    const dx = x - tp.x;
+    const dz = z - tp.z;
+    const d = dx * dx + dz * dz;
+    if (d < bestDist) { bestDist = d; bestY = tp.y; }
+  }
+  const dist = Math.sqrt(bestDist);
+  const nearRadius = 12;
+  const falloff = 50;
+  const blend = dist < nearRadius ? 1 : Math.max(0, 1 - (dist - nearRadius) / (falloff - nearRadius));
+  return (bestY - 0.05) * blend + groundBaseHeight * (1 - blend);
 }
 
 // ─── SCENE SETUP ──────────────────────────────────────────
@@ -303,16 +331,43 @@ sun.shadow.bias = -0.001;
 scene.add(sun);
 
 // ─── GROUND ────────────────────────────────────────────────
-const groundGeo = new THREE.PlaneGeometry(400, 400);
+const GROUND_SIZE = 400;
+const GROUND_SEGMENTS = 100;
+const groundGeo = new THREE.PlaneGeometry(GROUND_SIZE, GROUND_SIZE, GROUND_SEGMENTS, GROUND_SEGMENTS);
+groundGeo.rotateX(-Math.PI / 2);
 const groundMat = new THREE.MeshStandardMaterial({
   color: 0x4a9e5c,
   roughness: 0.9,
 });
 const ground = new THREE.Mesh(groundGeo, groundMat);
-ground.rotation.x = -Math.PI / 2;
 ground.position.y = -0.05;
 ground.receiveShadow = true;
 scene.add(ground);
+
+function updateGround() {
+  const pos = groundGeo.attributes.position;
+  const falloff = 50;
+  const nearRadius = 12;
+  for (let i = 0; i < pos.count; i++) {
+    const gx = pos.getX(i);
+    const gz = pos.getZ(i);
+    let bestDist = Infinity;
+    let bestY = -0.05;
+    for (let s = 0; s <= 200; s++) {
+      const t = s / 200;
+      const tp = getTrackPosition(t);
+      const dx = gx - tp.x;
+      const dz = gz - tp.z;
+      const d = dx * dx + dz * dz;
+      if (d < bestDist) { bestDist = d; bestY = tp.y; }
+    }
+    const dist = Math.sqrt(bestDist);
+    const blend = dist < nearRadius ? 1 : Math.max(0, 1 - (dist - nearRadius) / (falloff - nearRadius));
+    pos.setY(i, (bestY - 0.05) * blend + groundBaseHeight * (1 - blend));
+  }
+  pos.needsUpdate = true;
+  groundGeo.computeVertexNormals();
+}
 
 // ─── ROAD ──────────────────────────────────────────────────
 function buildRoad() {
@@ -351,8 +406,8 @@ function buildRoad() {
     const left = p.clone().add(normal.clone().multiplyScalar(ROAD_WIDTH / 2));
     const right = p.clone().add(normal.clone().multiplyScalar(-ROAD_WIDTH / 2));
     
-    left.y = 0.05;
-    right.y = 0.05;
+    left.y = p.y + 0.05;
+    right.y = p.y + 0.05;
     
     const segT = i / numSegs;
     verts.push(left.x, left.y, left.z, right.x, right.y, right.z);
@@ -405,7 +460,7 @@ function buildRoad() {
       
       const geo = new THREE.BufferGeometry();
       const sv = [];
-      shape.forEach(pt => { sv.push(pt.x, 0.06, pt.z); });
+      shape.forEach(pt => { sv.push(pt.x, pt.y + 0.06, pt.z); });
       geo.setAttribute('position', new THREE.Float32BufferAttribute(sv, 3));
       geo.setIndex([0, 1, 2, 0, 2, 3]);
       geo.computeVertexNormals();
@@ -439,10 +494,11 @@ function buildRoad() {
       
       if (segLen > 0.01) {
         const edgeGeo = new THREE.PlaneGeometry(segLen, 0.3);
+        const edgeY = (edgeP.y + nextEdgeP.y) / 2;
         const edge = new THREE.Mesh(edgeGeo, edgeMat);
-        edge.position.set((edgeP.x + nextEdgeP.x) / 2, 0.08, (edgeP.z + nextEdgeP.z) / 2);
+        edge.position.set((edgeP.x + nextEdgeP.x) / 2, edgeY + 0.08, (edgeP.z + nextEdgeP.z) / 2);
         edge.rotation.x = -Math.PI / 2;
-        edge.lookAt(nextEdgeP.x, 0.08, nextEdgeP.z);
+        edge.lookAt(nextEdgeP.x, edgeY + 0.08, nextEdgeP.z);
         edge.rotateX(Math.PI / 2);
         group.add(edge);
       }
@@ -452,7 +508,7 @@ function buildRoad() {
         const barrierP = p.clone().add(normal.clone().multiplyScalar(side * (ROAD_WIDTH / 2 + 0.8)));
         const barrierMat = (Math.floor(i / 2) % 2 === 0) ? barrierMatRed : barrierMatWhite;
         const barrier = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.6, 0.6), barrierMat);
-          barrier.position.set(barrierP.x, 0.3, barrierP.z);
+          barrier.position.set(barrierP.x, p.y + 0.3, barrierP.z);
           barrier.rotation.y = Math.atan2(-tangent.z, tangent.x);
           barrier.castShadow = true;
           group.add(barrier);
@@ -460,7 +516,7 @@ function buildRoad() {
           // Reflector (small cylinder on top)
           const refMat = new THREE.MeshStandardMaterial({ color: side === 1 ? 0xff4444 : 0xffffff, emissive: side === 1 ? 0xff2222 : 0x444444, emissiveIntensity: 0.3 });
           const ref = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.1, 8), refMat);
-          ref.position.set(barrierP.x, 0.65, barrierP.z);
+          ref.position.set(barrierP.x, p.y + 0.65, barrierP.z);
           group.add(ref);
       }
     }
@@ -481,7 +537,7 @@ function buildRoad() {
         new THREE.BoxGeometry(0.4, 6, 0.4),
         new THREE.MeshStandardMaterial({ color: 0x888888, metalness: 0.4, roughness: 0.3 })
       );
-      pillar.position.set(p.x, 3, p.z);
+      pillar.position.set(p.x, sfP.y + 3, p.z);
       pillar.castShadow = true;
       group.add(pillar);
     }
@@ -490,7 +546,7 @@ function buildRoad() {
     const bannerMat = new THREE.MeshStandardMaterial({ color: 0x222222 });
     const banner = new THREE.Mesh(new THREE.PlaneGeometry(ROAD_WIDTH + 4, 1.2), bannerMat);
     const midP = sfP.clone();
-    midP.y = 5.5;
+    midP.y = sfP.y + 5.5;
     banner.position.copy(midP);
     banner.lookAt(midP.clone().add(sfTangent));
     banner.rotateX(Math.PI / 2);
@@ -514,7 +570,7 @@ function buildRoad() {
     checkMesh.position.copy(midP);
     checkMesh.lookAt(midP.clone().add(sfTangent));
     checkMesh.rotateX(-Math.PI / 2);
-    checkMesh.position.y = 5.4;
+    checkMesh.position.y = sfP.y + 5.4;
     group.add(checkMesh);
     
     // Start/finish line on road
@@ -610,13 +666,14 @@ const mountainRing = [
   { a: 5.4, d: 250, h: 65, r: 33 },
   { a: 5.8, d: 270, h: 90, r: 42 },
 ];
+loadTrack('circuit');
 for (const m of mountainRing) {
   const x = Math.cos(m.a) * m.d;
   const z = Math.sin(m.a) * m.d;
-  scene.add(createMountain(x, z, m.h, m.r));
+  const mount = createMountain(x, z, m.h, m.r);
+  mount.position.y = getGroundHeight(x, z) - 3;
+  scene.add(mount);
 }
-
-loadTrack('circuit');
 
 // ─── WEATHER ────────────────────────────────────────────────
 const RAIN_AREA = 200;
@@ -902,7 +959,7 @@ function placeOnGrid(car, t, lateral, longitudinal) {
   const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
   const offset = normal.clone().multiplyScalar(lateral).add(tangent.clone().multiplyScalar(longitudinal));
   car.position.copy(pos.clone().add(offset));
-  car.position.y = 0.15;
+  car.position.y = pos.y + 0.15;
   car.rotation.y = Math.atan2(tangent.x, tangent.z);
 }
 
@@ -1443,7 +1500,8 @@ function updatePlayer(dt) {
   playerCar.position.z += forward.z * playerSpeed * dt;
   
   // Keep on ground
-  playerCar.position.y = 0.15;
+  const playerTrackY = _getTrackT(playerCar.position);
+  playerCar.position.y = getTrackPosition(playerTrackY).y + 0.15;
   
   // Slight tilt in turns
   if (!gameOver) {
@@ -1551,7 +1609,7 @@ function updateAI(dt) {
       car.position.copy(p);
       car.position.x += normal.x * ai.currentLateral + ai.driftOffset.x;
       car.position.z += normal.z * ai.currentLateral + ai.driftOffset.z;
-      car.position.y = 0.15;
+      car.position.y = p.y + 0.15;
       ai.driftOffset.multiplyScalar(0.97);
       car.rotation.y = Math.atan2(tangent.x, tangent.z);
       continue;
@@ -1669,7 +1727,7 @@ function updateAI(dt) {
     car.position.copy(p);
     car.position.x += normal0.x * ai.currentLateral + ai.driftOffset.x;
     car.position.z += normal0.z * ai.currentLateral + ai.driftOffset.z;
-    car.position.y = 0.15;
+    car.position.y = p.y + 0.15;
     ai.driftOffset.multiplyScalar(0.97);
 
     // Smoothed lateral velocity
