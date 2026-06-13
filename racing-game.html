@@ -697,6 +697,7 @@ for (let i = 0; i < AI_COUNT; i++) {
     lap: 0,
     finished: false,
     finishTime: 0,
+    driftOffset: new THREE.Vector3(),
   });
 }
 
@@ -905,6 +906,7 @@ function restartGame() {
     aiData[i].lap = 0;
     aiData[i].finished = false;
     aiData[i].finishTime = 0;
+    aiData[i].driftOffset.set(0, 0, 0);
   }
   
   gameTime = 0;
@@ -1221,9 +1223,10 @@ function updateAI(dt) {
     const tangent = getTrackTangent(Math.max(0, Math.min(1, ai.t)));
     const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
     aiCars[i].position.copy(p);
-    aiCars[i].position.x += normal.x * ai.lateral;
-    aiCars[i].position.z += normal.z * ai.lateral;
+    aiCars[i].position.x += normal.x * ai.lateral + ai.driftOffset.x;
+    aiCars[i].position.z += normal.z * ai.lateral + ai.driftOffset.z;
     aiCars[i].position.y = 0.15;
+    ai.driftOffset.multiplyScalar(0.97);
     
     const aiAngle = Math.atan2(tangent.x, tangent.z);
     aiCars[i].rotation.y = aiAngle;
@@ -1292,23 +1295,22 @@ function getVel(rot, spd) {
 
 function resolveCollisions() {
   const carList = [
-    { pos: playerCar.position, rot: () => playerCar.rotation.y, speed: () => playerSpeed, setSpeed: (v) => { playerSpeed = v; }, isPlayer: true },
+    { pos: playerCar.position, rot: () => playerCar.rotation.y, speed: () => playerSpeed, setSpeed: (v) => { playerSpeed = v; }, isPlayer: true, aiIdx: -1 },
   ];
   for (let i = 0; i < AI_COUNT; i++) {
-    const idx = i;
     carList.push({
-      pos: aiCars[idx].position,
-      rot: () => aiCars[idx].rotation.y,
-      speed: () => aiData[idx].speed,
-      setSpeed: (v) => { aiData[idx].speed = v; },
+      pos: aiCars[i].position,
+      rot: () => aiCars[i].rotation.y,
+      speed: () => aiData[i].speed,
+      setSpeed: (v) => { aiData[i].speed = v; },
       isPlayer: false,
+      aiIdx: i,
     });
   }
 
   for (let i = 0; i < carList.length; i++) {
     for (let j = i + 1; j < carList.length; j++) {
       const a = carList[i], b = carList[j];
-      if (!a.isPlayer && !b.isPlayer) continue;
       const result = obbOverlap(a.pos, a.rot(), b.pos, b.rot());
       if (!result) continue;
 
@@ -1317,6 +1319,8 @@ function resolveCollisions() {
       const push = result.overlap * 0.5;
       a.pos.addScaledVector(n, -push);
       b.pos.addScaledVector(n, push);
+      if (!a.isPlayer) aiData[a.aiIdx].driftOffset.addScaledVector(n, -push);
+      if (!b.isPlayer) aiData[b.aiIdx].driftOffset.addScaledVector(n, push);
 
       const va = getVel(a.rot(), a.speed());
       const vb = getVel(b.rot(), b.speed());
