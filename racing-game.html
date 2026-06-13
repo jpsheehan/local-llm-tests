@@ -1466,8 +1466,14 @@ function updatePlayer(dt) {
       const dir = playerSpeed < 0 ? -1 : 1;
       if (left) playerCar.rotation.y += turnFactor * dir;
       if (right) playerCar.rotation.y -= turnFactor * dir;
+      // Speed loss from turning at speed
+      if (absSpd > 15 && (left || right)) {
+        playerSpeed *= 1 - 0.04 * (absSpd / MAX_SPEED) * dt;
+      }
     }
   }
+  
+  const absSpd = Math.abs(playerSpeed);
   
   const forward = new THREE.Vector3(
     Math.sin(playerCar.rotation.y),
@@ -1483,14 +1489,16 @@ function updatePlayer(dt) {
   const targetY = getTrackPosition(trackT).y + 0.15;
   playerCar.position.y += (targetY - playerCar.position.y) * Math.min(1, dt * 25);
 
-  // Slight tilt in turns
+  // Body roll away from turn at higher speeds
   if (!gameOver) {
     let targetRoll = 0;
-    if (playerSpeed > 5) {
+    const speedRatio = absSpd / MAX_SPEED;
+    if (speedRatio > 0.3) {
+      const rollAmount = (speedRatio - 0.3) / 0.7 * 0.08;
       const left = keys.a || keys.left;
       const right = keys.d || keys.right;
-      if (left) targetRoll = -0.08;
-      if (right) targetRoll = 0.08;
+      if (left) targetRoll = rollAmount;
+      if (right) targetRoll = -rollAmount;
     }
     const roll = playerCar.rotation.z || 0;
     playerCar.rotation.z = roll + (targetRoll - roll) * Math.min(1, dt * 8);
