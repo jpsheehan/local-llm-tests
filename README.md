@@ -2,11 +2,13 @@
 
 ## Features
 
+- [x] Allow the player to reverse their vehicle by holding the down or 'S' key after they are stopped.
+- [ ] Allow meshes to be stored in separate files.
+- [ ] Allow the track level to be stored in separate files.
 - [x] AI cars should have their own racing lines so that they don't keep colliding with each other.
 - [x] All cars that finish the race shouldn't stop at the end of the race. Instead they should become uncontrollable and deccelerate normally.
 - [x] The lap times on the UI should have another digit of precision
 - [x] Add a sound effect for colliding with other vehicles
-- [ ] Allow the player to reverse their vehicle by holding the down or 'S' key after they are stopped.
 - [x] Add sound effects for:
     - [x] Braking
     - [x] Accelerating
@@ -21,6 +23,7 @@
 
 ## Bugs
 
+- [ ] The player should not be allowed to reverse back over the finish line to cheat
 - [x] The braking sound effect is too high pitched.
 - [x] The acceleration sound effect is too loud.
 - [x] The collision detection should be more permissive. Collisions currently occur when the player is near but not touching another car.

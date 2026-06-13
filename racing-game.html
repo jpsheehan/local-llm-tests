@@ -141,6 +141,8 @@ const MAX_SPEED = 42;
 const ACCEL = 28;
 const BRAKE = 60;
 const DRAG = 15;
+const REVERSE_MAX_SPEED = 15;
+const REVERSE_ACCEL = 28;
 const TURN_SPEED = 2.2;
 const TOTAL_LAPS = 3;
 const NUM_CHECKPOINTS = 10;
@@ -927,7 +929,7 @@ const lapTimesListEl = document.getElementById('lap-times-list');
 
 function updateHUD() {
   const displaySpeed = Math.round(Math.abs(playerSpeed) * 2.5);
-  speedValEl.textContent = Math.min(displaySpeed, 999);
+  speedValEl.textContent = (playerSpeed < -0.5 ? 'R ' : '') + Math.min(displaySpeed, 999);
   
   if (!gameOver) {
     lapTextEl.textContent = `LAP ${Math.min(playerLap + 1, TOTAL_LAPS)} / ${TOTAL_LAPS}`;
@@ -1085,6 +1087,8 @@ function updatePlayer(dt) {
   if (gameOver) {
     if (playerSpeed > 0) {
       playerSpeed = Math.max(playerSpeed - DRAG * dt, 0);
+    } else if (playerSpeed < 0) {
+      playerSpeed = Math.min(playerSpeed + DRAG * dt, 0);
     }
   } else {
     const accel = keys.w || keys.up;
@@ -1093,20 +1097,32 @@ function updatePlayer(dt) {
     const right = keys.d || keys.right;
     
     if (accel) {
-      playerSpeed = Math.min(playerSpeed + ACCEL * dt, MAX_SPEED);
+      if (playerSpeed < 0) {
+        playerSpeed = Math.min(playerSpeed + ACCEL * dt, 0);
+      } else {
+        playerSpeed = Math.min(playerSpeed + ACCEL * dt, MAX_SPEED);
+      }
     } else if (brake) {
-      playerSpeed = Math.max(playerSpeed - BRAKE * dt, 0);
-      if (playerSpeed > 3) Sound.brake();
+      if (playerSpeed > 0) {
+        playerSpeed = Math.max(playerSpeed - BRAKE * dt, 0);
+        if (playerSpeed > 3) Sound.brake();
+      } else {
+        playerSpeed = Math.max(playerSpeed - REVERSE_ACCEL * dt, -REVERSE_MAX_SPEED);
+      }
     } else {
       if (playerSpeed > 0) {
         playerSpeed = Math.max(playerSpeed - DRAG * dt, 0);
+      } else if (playerSpeed < 0) {
+        playerSpeed = Math.min(playerSpeed + DRAG * dt, 0);
       }
     }
     
-    if (playerSpeed > 0.1) {
-      let turnFactor = TURN_SPEED * (playerSpeed / MAX_SPEED) * dt;
-      if (left) playerCar.rotation.y += turnFactor;
-      if (right) playerCar.rotation.y -= turnFactor;
+    const absSpd = Math.abs(playerSpeed);
+    if (absSpd > 0.1) {
+      let turnFactor = TURN_SPEED * (absSpd / MAX_SPEED) * dt;
+      const dir = playerSpeed < 0 ? -1 : 1;
+      if (left) playerCar.rotation.y += turnFactor * dir;
+      if (right) playerCar.rotation.y -= turnFactor * dir;
     }
   }
   
@@ -1181,7 +1197,7 @@ function updatePlayer(dt) {
       playerLastCheckpoint = cIdx;
     }
   }
-  Sound.upEngine(playerSpeed);
+  Sound.upEngine(Math.abs(playerSpeed));
 }
 
 function updateAI(dt) {
