@@ -1052,28 +1052,34 @@ function updateMinimap() {
 
 // ─── PHYSICS UPDATE ───────────────────────────────────────
 function updatePlayer(dt) {
-  if (gameOver || countdown > 0) return;
+  if (countdown > 0) return;
   
-  const accel = keys.w || keys.up;
-  const brake = keys.s || keys.down;
-  const left = keys.a || keys.left;
-  const right = keys.d || keys.right;
-  
-  if (accel) {
-    playerSpeed = Math.min(playerSpeed + ACCEL * dt, MAX_SPEED);
-  } else if (brake) {
-    playerSpeed = Math.max(playerSpeed - BRAKE * dt, 0);
-    if (playerSpeed > 3) Sound.brake();
-  } else {
+  if (gameOver) {
     if (playerSpeed > 0) {
       playerSpeed = Math.max(playerSpeed - DRAG * dt, 0);
     }
-  }
-  
-  if (playerSpeed > 0.1) {
-    let turnFactor = TURN_SPEED * (playerSpeed / MAX_SPEED) * dt;
-    if (left) playerCar.rotation.y += turnFactor;
-    if (right) playerCar.rotation.y -= turnFactor;
+  } else {
+    const accel = keys.w || keys.up;
+    const brake = keys.s || keys.down;
+    const left = keys.a || keys.left;
+    const right = keys.d || keys.right;
+    
+    if (accel) {
+      playerSpeed = Math.min(playerSpeed + ACCEL * dt, MAX_SPEED);
+    } else if (brake) {
+      playerSpeed = Math.max(playerSpeed - BRAKE * dt, 0);
+      if (playerSpeed > 3) Sound.brake();
+    } else {
+      if (playerSpeed > 0) {
+        playerSpeed = Math.max(playerSpeed - DRAG * dt, 0);
+      }
+    }
+    
+    if (playerSpeed > 0.1) {
+      let turnFactor = TURN_SPEED * (playerSpeed / MAX_SPEED) * dt;
+      if (left) playerCar.rotation.y += turnFactor;
+      if (right) playerCar.rotation.y -= turnFactor;
+    }
   }
   
   const forward = new THREE.Vector3(
@@ -1089,13 +1095,17 @@ function updatePlayer(dt) {
   playerCar.position.y = 0.15;
   
   // Slight tilt in turns
-  let targetRoll = 0;
-  if (playerSpeed > 5) {
-    if (left) targetRoll = -0.08;
-    if (right) targetRoll = 0.08;
+  if (!gameOver) {
+    let targetRoll = 0;
+    if (playerSpeed > 5) {
+      const left = keys.a || keys.left;
+      const right = keys.d || keys.right;
+      if (left) targetRoll = -0.08;
+      if (right) targetRoll = 0.08;
+    }
+    const roll = playerCar.rotation.z || 0;
+    playerCar.rotation.z = roll + (targetRoll - roll) * Math.min(1, dt * 8);
   }
-  const roll = playerCar.rotation.z || 0;
-  playerCar.rotation.z = roll + (targetRoll - roll) * Math.min(1, dt * 8);
   
   // Start/finish line crossing detection (along-track direction)
   const sfPos = checkpointPositions[0];
@@ -1114,7 +1124,6 @@ function updatePlayer(dt) {
       if (playerLap >= TOTAL_LAPS) {
         playerFinished = true;
         gameOver = true;
-        playerSpeed = 0;
         racePositions.length = 0;
         showMessage('RACE COMPLETE!');
         Sound.finish();
@@ -1150,32 +1159,38 @@ function updatePlayer(dt) {
 function updateAI(dt) {
   for (let i = 0; i < AI_COUNT; i++) {
     const ai = aiData[i];
-    if (ai.finished) continue;
-    
-    let slowdown = 1;
-    for (let j = 0; j < AI_COUNT; j++) {
-      if (i === j) continue;
-      const other = aiData[j];
-      if (other.finished) continue;
-      if (Math.abs(ai.lateral - other.lateral) < 1.8) {
-        const sameLap = ai.lap === other.lap;
-        const tGap = other.t - ai.t;
-        const ahead = sameLap && tGap > 0 && tGap < 0.02;
-        const oneLapAhead = other.lap === ai.lap + 1 && other.t > 0.98 && ai.t < 0.02;
-        if (ahead || oneLapAhead) slowdown = Math.min(slowdown, 0.4);
+    if (ai.finished) {
+      if (ai.speed > 0) {
+        ai.speed = Math.max(ai.speed - DRAG * dt, 0);
       }
-    }
-    
-    if (ai.speed < ai.baseSpeed) {
-      ai.speed = Math.min(ai.speed + 20 * dt, ai.baseSpeed);
-    }
-    ai.t += (ai.speed * slowdown / trackLength) * dt;
-    if (ai.t >= 1) {
-      ai.t -= 1;
-      ai.lap++;
-      if (ai.lap >= TOTAL_LAPS) {
-        ai.finished = true;
-        ai.finishTime = gameTime;
+      ai.t += (ai.speed / trackLength) * dt;
+      if (ai.t >= 1) ai.t -= 1;
+    } else {
+      let slowdown = 1;
+      for (let j = 0; j < AI_COUNT; j++) {
+        if (i === j) continue;
+        const other = aiData[j];
+        if (other.finished) continue;
+        if (Math.abs(ai.lateral - other.lateral) < 1.8) {
+          const sameLap = ai.lap === other.lap;
+          const tGap = other.t - ai.t;
+          const ahead = sameLap && tGap > 0 && tGap < 0.02;
+          const oneLapAhead = other.lap === ai.lap + 1 && other.t > 0.98 && ai.t < 0.02;
+          if (ahead || oneLapAhead) slowdown = Math.min(slowdown, 0.4);
+        }
+      }
+      
+      if (ai.speed < ai.baseSpeed) {
+        ai.speed = Math.min(ai.speed + 20 * dt, ai.baseSpeed);
+      }
+      ai.t += (ai.speed * slowdown / trackLength) * dt;
+      if (ai.t >= 1) {
+        ai.t -= 1;
+        ai.lap++;
+        if (ai.lap >= TOTAL_LAPS) {
+          ai.finished = true;
+          ai.finishTime = gameTime;
+        }
       }
     }
     
@@ -1414,14 +1429,12 @@ function gameLoop(time) {
   updateMinimap();
   
   // Wheel rotation
-  if (!gameOver) {
-    const wheelSpeed = playerSpeed * 4;
-    playerCar.children.forEach(child => {
-      if (child.type === 'Group') {
-        child.rotation.x += wheelSpeed * dt;
-      }
-    });
-  }
+  const wheelSpeed = playerSpeed * 4;
+  playerCar.children.forEach(child => {
+    if (child.type === 'Group') {
+      child.rotation.x += wheelSpeed * dt;
+    }
+  });
   
   renderer.render(scene, camera);
 }
