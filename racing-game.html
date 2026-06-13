@@ -623,7 +623,7 @@ const playerCar = createCar(0xdd2222, true);
 playerCar.position.copy(getTrackPosition(0));
 playerCar.position.y = 0.15;
 const startTangent = getTrackTangent(0);
-playerCar.rotation.y = -Math.atan2(startTangent.x, startTangent.z);
+playerCar.rotation.y = Math.atan2(startTangent.x, startTangent.z);
 scene.add(playerCar);
 
 let playerSpeed = 0;
@@ -646,7 +646,7 @@ for (let i = 0; i < AI_COUNT; i++) {
   car.position.copy(sp);
   car.position.y = 0.15;
   const st = getTrackTangent(startT);
-  car.rotation.y = -Math.atan2(st.x, st.z);
+  car.rotation.y = Math.atan2(st.x, st.z);
   scene.add(car);
   
   aiCars.push(car);
@@ -707,7 +707,7 @@ let racePositions = [];
 function restartGame() {
   playerCar.position.copy(getTrackPosition(0));
   const st = getTrackTangent(0);
-  playerCar.rotation.y = -Math.atan2(st.x, st.z);
+  playerCar.rotation.y = Math.atan2(st.x, st.z);
   playerSpeed = 0;
   playerLap = 0;
   playerLastCheckpoint = -1;
@@ -720,7 +720,7 @@ function restartGame() {
     aiCars[i].position.copy(sp);
     aiCars[i].position.y = 0.15;
     const st2 = getTrackTangent(startT);
-    aiCars[i].rotation.y = -Math.atan2(st2.x, st2.z);
+    aiCars[i].rotation.y = Math.atan2(st2.x, st2.z);
     aiData[i].t = startT;
     aiData[i].speed = aiData[i].baseSpeed;
     aiData[i].lap = 0;
@@ -981,7 +981,7 @@ function updateAI(dt) {
     aiCars[i].position.y = 0.15;
     
     const tangent = getTrackTangent(Math.max(0, Math.min(1, ai.t)));
-    const aiAngle = -Math.atan2(tangent.x, tangent.z);
+    const aiAngle = Math.atan2(tangent.x, tangent.z);
     aiCars[i].rotation.y = aiAngle;
   }
 }
