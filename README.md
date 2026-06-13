@@ -2,17 +2,18 @@
 
 ## Feature Requests
 
-- [x] Add collision detection
-- [ ] Add sound effects for:
-    - [ ] Braking
-    - [ ] Accelerating
-    - [ ] Completing a lap
-    - [ ] Completing the penultimate lap
-    - [ ] Finishing the race
-    - [ ] Counting down to the race start
+- [ ] AI cars should have their own racing lines so that they don't keep colliding with each other.
+- [x] Add sound effects for:
+    - [x] Braking
+    - [x] Accelerating
+    - [x] Completing a lap
+    - [x] Completing the penultimate lap
+    - [x] Finishing the race
+    - [x] Counting down to the race start
 
 ## Features Completed
 
+- [x] Add collision detection
 - [x] Add a list of lap times to the UI.
 - [x] Add a new first-person camera angle and make it the default. The player should be able to toggle between them with 'C'.
 - [x] Place all the cars on a starting grid with the player at the rear.
