@@ -495,6 +495,62 @@ function createTree(x, z, scale) {
   return group;
 }
 
+// ─── MOUNTAINS ────────────────────────────────────────────────
+function createMountain(x, z, height, radius) {
+  const group = new THREE.Group();
+  const rockMat = new THREE.MeshStandardMaterial({ color: 0x6B705E, roughness: 0.85 });
+
+  const main = new THREE.Mesh(new THREE.ConeGeometry(radius, height, 7), rockMat);
+  main.position.y = height / 2;
+  main.castShadow = true;
+  group.add(main);
+
+  const snowMat = new THREE.MeshStandardMaterial({ color: 0xE8E0D8, roughness: 0.6 });
+  const snow = new THREE.Mesh(new THREE.ConeGeometry(radius * 0.3, height * 0.35, 7), snowMat);
+  snow.position.y = height * 0.85;
+  snow.castShadow = true;
+  group.add(snow);
+
+  for (let i = 0; i < 4; i++) {
+    const sub = new THREE.Mesh(
+      new THREE.ConeGeometry(radius * (0.4 + Math.random() * 0.3), height * (0.4 + Math.random() * 0.3), 6),
+      rockMat
+    );
+    const a = Math.random() * Math.PI * 2;
+    const d = radius * (0.5 + Math.random() * 0.4);
+    sub.position.set(Math.cos(a) * d, sub.geometry.parameters.height / 2, Math.sin(a) * d);
+    sub.castShadow = true;
+    group.add(sub);
+  }
+
+  group.position.set(x, 0, z);
+  return group;
+}
+
+const mountainRing = [
+  { a: 0.0, d: 250, h: 60, r: 35 },
+  { a: 0.35, d: 260, h: 85, r: 40 },
+  { a: 0.7, d: 240, h: 55, r: 30 },
+  { a: 1.0, d: 270, h: 90, r: 45 },
+  { a: 1.4, d: 245, h: 65, r: 32 },
+  { a: 1.8, d: 255, h: 75, r: 38 },
+  { a: 2.2, d: 260, h: 50, r: 28 },
+  { a: 2.6, d: 250, h: 80, r: 42 },
+  { a: 3.0, d: 270, h: 70, r: 35 },
+  { a: 3.4, d: 245, h: 95, r: 44 },
+  { a: 3.8, d: 255, h: 60, r: 30 },
+  { a: 4.2, d: 265, h: 85, r: 40 },
+  { a: 4.6, d: 240, h: 55, r: 30 },
+  { a: 5.0, d: 260, h: 75, r: 36 },
+  { a: 5.4, d: 250, h: 65, r: 33 },
+  { a: 5.8, d: 270, h: 90, r: 42 },
+];
+for (const m of mountainRing) {
+  const x = Math.cos(m.a) * m.d;
+  const z = Math.sin(m.a) * m.d;
+  scene.add(createMountain(x, z, m.h, m.r));
+}
+
 // Place trees around track (avoiding the track itself)
 function isOnTrack(x, z) {
   const p = new THREE.Vector3(x, 0, z);
