@@ -619,12 +619,28 @@ function createCar(color, isPlayer = false) {
   return group;
 }
 
+// ─── STARTING GRID ────────────────────────────────────────
+const gridSpacing = 3;
+const gridPositions = [
+  { t: 1.0, lateral: 0, longitudinal: 0, pathT: 0.000 },        // AI 0 — pole (at start line)
+  { t: 1.0, lateral: -2.2, longitudinal: -gridSpacing, pathT: 0.003 },  // AI 1 — row 2 left
+  { t: 1.0, lateral: 2.2, longitudinal: -gridSpacing, pathT: 0.006 },   // AI 2 — row 2 right
+  { t: 1.0, lateral: 0, longitudinal: -gridSpacing * 2, pathT: 0.009 }, // Player — back row
+];
+
+function placeOnGrid(car, t, lateral, longitudinal) {
+  const pos = getTrackPosition(t);
+  const tangent = getTrackTangent(t);
+  const normal = new THREE.Vector3(-tangent.z, 0, tangent.x).normalize();
+  const offset = normal.clone().multiplyScalar(lateral).add(tangent.clone().multiplyScalar(longitudinal));
+  car.position.copy(pos.clone().add(offset));
+  car.position.y = 0.15;
+  car.rotation.y = Math.atan2(tangent.x, tangent.z);
+}
+
 // ─── PLAYER ────────────────────────────────────────────────
 const playerCar = createCar(0xdd2222, true);
-playerCar.position.copy(getTrackPosition(0));
-playerCar.position.y = 0.15;
-const startTangent = getTrackTangent(0);
-playerCar.rotation.y = Math.atan2(startTangent.x, startTangent.z);
+placeOnGrid(playerCar, gridPositions[3].t, gridPositions[3].lateral, gridPositions[3].longitudinal);
 scene.add(playerCar);
 
 let playerSpeed = 0;
@@ -642,17 +658,12 @@ const aiData = [];
 
 for (let i = 0; i < AI_COUNT; i++) {
   const car = createCar(aiColors[i], false);
-  const startT = ((i + 1) / (AI_COUNT + 1));
-  const sp = getTrackPosition(startT);
-  car.position.copy(sp);
-  car.position.y = 0.15;
-  const st = getTrackTangent(startT);
-  car.rotation.y = Math.atan2(st.x, st.z);
+  placeOnGrid(car, gridPositions[i].t, gridPositions[i].lateral, gridPositions[i].longitudinal);
   scene.add(car);
   
   aiCars.push(car);
   aiData.push({
-    t: startT,
+    t: gridPositions[i].pathT,
     speed: 25 + Math.random() * 15,
     baseSpeed: 25 + Math.random() * 15,
     lap: 0,
@@ -706,9 +717,7 @@ let messageEl = document.getElementById('message');
 let racePositions = [];
 
 function restartGame() {
-  playerCar.position.copy(getTrackPosition(0));
-  const st = getTrackTangent(0);
-  playerCar.rotation.y = Math.atan2(st.x, st.z);
+  placeOnGrid(playerCar, gridPositions[3].t, gridPositions[3].lateral, gridPositions[3].longitudinal);
   playerSpeed = 0;
   playerLap = 0;
   playerLastCheckpoint = -1;
@@ -716,13 +725,8 @@ function restartGame() {
   playerFinished = false;
   
   for (let i = 0; i < AI_COUNT; i++) {
-    const startT = ((i + 1) / (AI_COUNT + 1));
-    const sp = getTrackPosition(startT);
-    aiCars[i].position.copy(sp);
-    aiCars[i].position.y = 0.15;
-    const st2 = getTrackTangent(startT);
-    aiCars[i].rotation.y = Math.atan2(st2.x, st2.z);
-    aiData[i].t = startT;
+    placeOnGrid(aiCars[i], gridPositions[i].t, gridPositions[i].lateral, gridPositions[i].longitudinal);
+    aiData[i].t = gridPositions[i].pathT;
     aiData[i].speed = aiData[i].baseSpeed;
     aiData[i].lap = 0;
     aiData[i].finished = false;
