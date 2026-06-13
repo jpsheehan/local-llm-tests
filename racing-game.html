@@ -1462,7 +1462,7 @@ function updatePlayer(dt) {
     
     const absSpd = Math.abs(playerSpeed);
     if (absSpd > 0.1) {
-      let turnFactor = TURN_SPEED * (absSpd / MAX_SPEED) * dt;
+      let turnFactor = TURN_SPEED * (absSpd / MAX_SPEED + 0.15) * dt;
       const dir = playerSpeed < 0 ? -1 : 1;
       if (left) playerCar.rotation.y += turnFactor * dir;
       if (right) playerCar.rotation.y -= turnFactor * dir;
