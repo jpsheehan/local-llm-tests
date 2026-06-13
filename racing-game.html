@@ -747,7 +747,9 @@ const Sound = {
   lfo: null,
   lfoGain: null,
   brakeBuf: null,
+  collisionBuf: null,
   prevBrake: false,
+  prevCollision: false,
 
   init() {
     if (this.ready) return;
@@ -781,9 +783,14 @@ const Sound = {
       this.gain.connect(this.ctx.destination);
 
       const sr = this.ctx.sampleRate;
-      const len = (sr * 0.08) | 0;
+      let len = (sr * 0.08) | 0;
       this.brakeBuf = this.ctx.createBuffer(1, len, sr);
-      const d = this.brakeBuf.getChannelData(0);
+      let d = this.brakeBuf.getChannelData(0);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+
+      len = (sr * 0.15) | 0;
+      this.collisionBuf = this.ctx.createBuffer(1, len, sr);
+      d = this.collisionBuf.getChannelData(0);
       for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
       this.ready = true;
     } catch (_) {}
@@ -844,13 +851,26 @@ const Sound = {
 
   brake() {
     if (!this.ctx) return;
-    const s = this.ctx.createBufferSource();
-    s.buffer = this.brakeBuf;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.brakeBuf;
     const g = this.ctx.createGain();
-    g.gain.setValueAtTime(0.06, this.ctx.currentTime);
-    g.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.08);
-    s.connect(g); g.connect(this.ctx.destination);
-    s.start();
+    g.gain.value = 0.12;
+    src.connect(g); g.connect(this.ctx.destination);
+    src.start();
+  },
+
+  collision() {
+    if (!this.ctx) return;
+    const src = this.ctx.createBufferSource();
+    src.buffer = this.collisionBuf;
+    const g = this.ctx.createGain();
+    g.gain.value = 0.2;
+    const f = this.ctx.createBiquadFilter();
+    f.type = 'lowpass';
+    f.frequency.setValueAtTime(800, this.ctx.currentTime);
+    f.frequency.exponentialRampToValueAtTime(40, this.ctx.currentTime + 0.12);
+    src.connect(f); f.connect(g); g.connect(this.ctx.destination);
+    src.start();
   },
 };
 
@@ -1289,6 +1309,7 @@ function resolveCollisions() {
       const result = obbOverlap(a.pos, a.rot(), b.pos, b.rot());
       if (!result) continue;
 
+      Sound.collision();
       const n = result.normal;
       const push = result.overlap * 0.5 + 0.05;
       a.pos.addScaledVector(n, -push);

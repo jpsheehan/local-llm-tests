@@ -5,7 +5,7 @@
 - [x] AI cars should have their own racing lines so that they don't keep colliding with each other.
 - [x] All cars that finish the race shouldn't stop at the end of the race. Instead they should become uncontrollable and deccelerate normally.
 - [x] The lap times on the UI should have another digit of precision
-- [ ] Add a sound effect for colliding with other vehicles
+- [x] Add a sound effect for colliding with other vehicles
 - [ ] Allow the player to reverse their vehicle by holding the down or 'S' key after they are stopped.
 - [x] Add sound effects for:
     - [x] Braking
