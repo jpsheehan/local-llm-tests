@@ -4,9 +4,10 @@
 
 - [x] Allow the player to reverse their vehicle by holding the down or 'S' key after they are stopped.
 - [x] Add pause button.
+- [x] There should be 7 AI cars in the game. Adjust the AI racing logic accordingly.
 - [ ] Allow sounds to be stored in separate files.
 - [ ] Allow meshes to be stored in separate files.
-- [ ] Allow the track level to be stored in separate files.
+- [ ] Allow the level data to be stored in separate files.
 - [x] AI cars should have their own racing lines so that they don't keep colliding with each other.
 - [x] All cars that finish the race shouldn't stop at the end of the race. Instead they should become uncontrollable and deccelerate normally.
 - [x] The lap times on the UI should have another digit of precision

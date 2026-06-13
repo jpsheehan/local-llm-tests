@@ -147,7 +147,7 @@ const REVERSE_ACCEL = 28;
 const TURN_SPEED = 2.2;
 const TOTAL_LAPS = 3;
 const NUM_CHECKPOINTS = 10;
-const AI_COUNT = 3;
+const AI_COUNT = 0;
 
 // ─── TRACK ─────────────────────────────────────────────────
 const trackPoints = [
@@ -646,12 +646,18 @@ function createCar(color, isPlayer = false) {
 
 // ─── STARTING GRID ────────────────────────────────────────
 const gridSpacing = 3;
-const gridPositions = [
-  { t: 1.0, lateral: 0, longitudinal: 0, pathT: 0.000 },        // AI 0 — pole (at start line)
-  { t: 1.0, lateral: -4, longitudinal: -gridSpacing, pathT: 0.003 },  // AI 1 — row 2 left
-  { t: 1.0, lateral: 4, longitudinal: -gridSpacing, pathT: 0.006 },   // AI 2 — row 2 right
-  { t: 1.0, lateral: 0, longitudinal: -gridSpacing * 2, pathT: 0.009 }, // Player — back row
-];
+const gridPositions = (() => {
+  const total = AI_COUNT + 1;
+  const latOffset = 2.5;
+  const positions = [];
+  for (let i = 0; i < total; i++) {
+    const lateral = i % 2 === 0 ? -latOffset : latOffset;
+    const longitudinal = -i * gridSpacing;
+    const pathT = i * 0.003;
+    positions.push({ t: 1.0, lateral, longitudinal, pathT });
+  }
+  return positions;
+})();
 
 function placeOnGrid(car, t, lateral, longitudinal) {
   const pos = getTrackPosition(t);
@@ -665,7 +671,7 @@ function placeOnGrid(car, t, lateral, longitudinal) {
 
 // ─── PLAYER ────────────────────────────────────────────────
 const playerCar = createCar(0xdd2222, true);
-placeOnGrid(playerCar, gridPositions[3].t, gridPositions[3].lateral, gridPositions[3].longitudinal);
+placeOnGrid(playerCar, gridPositions[AI_COUNT].t, gridPositions[AI_COUNT].lateral, gridPositions[AI_COUNT].longitudinal);
 scene.add(playerCar);
 
 let playerSpeed = 0;
@@ -681,22 +687,24 @@ let playerLastLapTime = 0;
 const keys = { w: false, a: false, s: false, d: false, up: false, down: false, left: false, right: false };
 
 // ─── AI CARS ──────────────────────────────────────────────
-const aiColors = [0x2266dd, 0x22aa44, 0xddcc22];
+const aiColors = [];
 const aiCars = [];
+let _playerCollisionTime = 0;
 const aiData = [];
 
 for (let i = 0; i < AI_COUNT; i++) {
   const car = createCar(aiColors[i], false);
   placeOnGrid(car, gridPositions[i].t, gridPositions[i].lateral, gridPositions[i].longitudinal);
   scene.add(car);
-  
-  const laterals = [0, -4, 4];
+
+  const idealLateral = gridPositions[i].lateral;
   aiCars.push(car);
   aiData.push({
     t: gridPositions[i].pathT,
-    speed: 25 + Math.random() * 15,
-    baseSpeed: 25 + Math.random() * 15,
-    lateral: laterals[i],
+    speed: 45 + Math.random() * 10,
+    baseSpeed: 45 + Math.random() * 10,
+    currentLateral: idealLateral,
+    _prevLat: idealLateral,
     lap: 0,
     finished: false,
     finishTime: 0,
@@ -908,7 +916,7 @@ function togglePause() {
 }
 
 function restartGame() {
-  placeOnGrid(playerCar, gridPositions[3].t, gridPositions[3].lateral, gridPositions[3].longitudinal);
+placeOnGrid(playerCar, gridPositions[AI_COUNT].t, gridPositions[AI_COUNT].lateral, gridPositions[AI_COUNT].longitudinal);
   playerSpeed = 0;
   playerLap = 0;
   playerLastCheckpoint = 0;
@@ -923,6 +931,8 @@ function restartGame() {
     placeOnGrid(aiCars[i], gridPositions[i].t, gridPositions[i].lateral, gridPositions[i].longitudinal);
     aiData[i].t = gridPositions[i].pathT;
     aiData[i].speed = aiData[i].baseSpeed;
+    aiData[i].currentLateral = gridPositions[i].lateral;
+    aiData[i]._prevLat = gridPositions[i].lateral;
     aiData[i].lap = 0;
     aiData[i].finished = false;
     aiData[i].finishTime = 0;
@@ -1000,7 +1010,7 @@ function updatePositions() {
     playerCIdx = NUM_CHECKPOINTS - 1;
   }
   const playerProgress = playerLap * NUM_CHECKPOINTS + playerCIdx;
-  racePositions.push({ progress: playerProgress, isPlayer: true, finished: playerFinished, gridOrder: 3 });
+  racePositions.push({ progress: playerProgress, isPlayer: true, finished: playerFinished, gridOrder: AI_COUNT });
   
   // AI progress
   for (let i = 0; i < AI_COUNT; i++) {
@@ -1219,55 +1229,184 @@ function updatePlayer(dt) {
   Sound.upEngine(Math.abs(playerSpeed));
 }
 
+function _getTrackT(pos) {
+  let bestT = 0;
+  let bestDist = Infinity;
+  for (let s = 0; s < 200; s++) {
+    const t = s / 200;
+    const p = trackCurve.getPoint(t);
+    const d = pos.distanceToSquared(p);
+    if (d < bestDist) { bestDist = d; bestT = t; }
+  }
+  return bestT;
+}
+
 function updateAI(dt) {
+  const maxLateral = 5.5;
+  const lookahead = 0.08;
+  const steerSpeed = 12;
+  const repulsionStrength = 25;
+  const repulsionRange = 0.18;
+  const brakeRange = 0.15;
+
+  let playerT = 0;
+  let playerLat = 0;
+  if (countdown <= 0) {
+    playerT = _getTrackT(playerCar.position);
+    const pp = getTrackPosition(playerT);
+    const pt = getTrackTangent(playerT);
+    const pn = new THREE.Vector3(-pt.z, 0, pt.x);
+    playerLat = (playerCar.position.x - pp.x) * pn.x + (playerCar.position.z - pp.z) * pn.z;
+  }
+
   for (let i = 0; i < AI_COUNT; i++) {
     const ai = aiData[i];
+    const car = aiCars[i];
+
     if (ai.finished) {
-      if (ai.speed > 0) {
-        ai.speed = Math.max(ai.speed - DRAG * dt, 0);
-      }
+      if (ai.speed > 0) ai.speed = Math.max(ai.speed - DRAG * dt, 0);
       ai.t += (ai.speed / trackLength) * dt;
       if (ai.t >= 1) ai.t -= 1;
-    } else {
-      let slowdown = 1;
-      for (let j = 0; j < AI_COUNT; j++) {
-        if (i === j) continue;
-        const other = aiData[j];
-        if (other.finished) continue;
-        if (Math.abs(ai.lateral - other.lateral) < 1.8) {
-          const sameLap = ai.lap === other.lap;
-          const tGap = other.t - ai.t;
-          const ahead = sameLap && tGap > 0 && tGap < 0.02;
-          const oneLapAhead = other.lap === ai.lap + 1 && other.t > 0.98 && ai.t < 0.02;
-          if (ahead || oneLapAhead) slowdown = Math.min(slowdown, 0.4);
-        }
-      }
-      
-      if (ai.speed < ai.baseSpeed) {
-        ai.speed = Math.min(ai.speed + 20 * dt, ai.baseSpeed);
-      }
-      ai.t += (ai.speed * slowdown / trackLength) * dt;
-      if (ai.t >= 1) {
-        ai.t -= 1;
-        ai.lap++;
-        if (ai.lap >= TOTAL_LAPS) {
-          ai.finished = true;
-          ai.finishTime = gameTime;
+      const p = getTrackPosition(ai.t);
+      const tangent = getTrackTangent(ai.t);
+      const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
+      car.position.copy(p);
+      car.position.x += normal.x * ai.currentLateral + ai.driftOffset.x;
+      car.position.z += normal.z * ai.currentLateral + ai.driftOffset.z;
+      car.position.y = 0.15;
+      ai.driftOffset.multiplyScalar(0.97);
+      car.rotation.y = Math.atan2(tangent.x, tangent.z);
+      continue;
+    }
+
+    const ct = Math.max(0, Math.min(1, ai.t));
+    const lookT = Math.max(0, Math.min(1, ai.t + lookahead));
+    const tangent0 = getTrackTangent(ct);
+    const tangent1 = getTrackTangent(lookT);
+    const normal0 = new THREE.Vector3(-tangent0.z, 0, tangent0.x);
+
+    // Curvature
+    const curveAngle = Math.acos(Math.max(-1, Math.min(1, tangent0.dot(tangent1))));
+    const curveSign = tangent0.x * tangent1.z - tangent0.z * tangent1.x;
+
+    // Corner cutting
+    const cornerAmount = Math.max(0, Math.min(1, (curveAngle - 0.01) / 0.04));
+    let targetLat = 0;
+    if (cornerAmount > 0) {
+      const idealCut = Math.sign(curveSign) * cornerAmount * Math.min(curveAngle * 25, 4);
+      targetLat = idealCut;
+    }
+
+    let carsAhead = 0;
+    let carsBehind = 0;
+    let minAbsTDiff = Infinity;
+
+    // Obstacle repulsion and braking from AI cars
+    for (let j = 0; j < AI_COUNT; j++) {
+      if (j === i) continue;
+      const other = aiData[j];
+      const otherProgress = other.lap + other.t;
+      const aiProgress = ai.lap + ai.t;
+      const tDiff = otherProgress - aiProgress;
+      const absTDiff = Math.abs(tDiff);
+      if (absTDiff < repulsionRange) {
+        const latDiff = ai.currentLateral - other.currentLateral;
+        const absLat = Math.abs(latDiff);
+        if (absLat < 5) {
+          const dir = absLat < 0.5 ? (j < i ? 1 : -1) : Math.sign(latDiff);
+          const latFactor = 1 - absLat / 5;
+          const tFactor = 1 - absTDiff / repulsionRange;
+          targetLat += dir * repulsionStrength * latFactor * latFactor * tFactor;
+          if (absLat < 3.5) {
+            if (tDiff > 0) carsAhead++; else carsBehind++;
+            if (absTDiff < minAbsTDiff) minAbsTDiff = absTDiff;
+          }
         }
       }
     }
-    
-    const p = getTrackPosition(Math.max(0, Math.min(1, ai.t)));
-    const tangent = getTrackTangent(Math.max(0, Math.min(1, ai.t)));
-    const normal = new THREE.Vector3(-tangent.z, 0, tangent.x);
-    aiCars[i].position.copy(p);
-    aiCars[i].position.x += normal.x * ai.lateral + ai.driftOffset.x;
-    aiCars[i].position.z += normal.z * ai.lateral + ai.driftOffset.z;
-    aiCars[i].position.y = 0.15;
+
+    targetLat = Math.max(-maxLateral, Math.min(maxLateral, targetLat));
+    targetLat += (0 - targetLat) * 1.0 * dt;
+
+    const latDiff = targetLat - ai.currentLateral;
+    const maxMove = steerSpeed * dt;
+    ai.currentLateral += Math.max(-maxMove, Math.min(maxMove, latDiff));
+    ai.currentLateral = Math.max(-maxLateral, Math.min(maxLateral, ai.currentLateral));
+
+    // Target speed based on curvature
+    let targetSpeed = ai.baseSpeed;
+    targetSpeed *= Math.max(0.6, 1 - curveAngle * 4);
+
+    // Brake for nearby AI cars
+    for (let j = 0; j < AI_COUNT; j++) {
+      if (j === i) continue;
+      const other = aiData[j];
+      const otherProgress = other.lap + other.t;
+      const aiProgress = ai.lap + ai.t;
+      const tDiff = otherProgress - aiProgress;
+      const absTDiff = Math.abs(tDiff);
+      if (absTDiff < brakeRange) {
+        const latDist = Math.abs(ai.currentLateral - other.currentLateral);
+        if (latDist < 5) {
+          const brakeFactor = Math.max(0, 1 - absTDiff / brakeRange) * Math.max(0, 1 - latDist / 5);
+          targetSpeed *= (1 - brakeFactor * 0.85);
+        }
+      }
+    }
+
+    // Speed adjustment based on nearby cars — leader speeds up, follower slows down
+    if (carsAhead > 0 && carsBehind === 0) {
+      targetSpeed *= (1 + carsAhead * 0.12);
+    } else if (carsBehind > 0 && carsAhead === 0) {
+      targetSpeed *= (1 - carsBehind * 0.15);
+    } else if (carsAhead > 0 && carsBehind > 0) {
+      targetSpeed *= 0.85;
+    }
+
+    // Panic brake when very close to any car
+    if (minAbsTDiff < 0.04) {
+      targetSpeed = Math.min(targetSpeed, 15);
+    }
+
+    targetSpeed = Math.max(10, targetSpeed);
+
+    if (ai.speed < targetSpeed) {
+      ai.speed = Math.min(ai.speed + 50 * dt, targetSpeed);
+    } else {
+      ai.speed = Math.max(ai.speed - 80 * dt, targetSpeed);
+    }
+
+    ai.t += (ai.speed / trackLength) * dt;
+    if (ai.t >= 1) {
+      ai.t -= 1;
+      ai.lap++;
+      if (ai.lap >= TOTAL_LAPS) {
+        ai.finished = true;
+        ai.finishTime = gameTime;
+      }
+    }
+
+    // Position
+    const p = getTrackPosition(ct);
+    car.position.copy(p);
+    car.position.x += normal0.x * ai.currentLateral + ai.driftOffset.x;
+    car.position.z += normal0.z * ai.currentLateral + ai.driftOffset.z;
+    car.position.y = 0.15;
     ai.driftOffset.multiplyScalar(0.97);
-    
-    const aiAngle = Math.atan2(tangent.x, tangent.z);
-    aiCars[i].rotation.y = aiAngle;
+
+    // Smoothed lateral velocity
+    const rawLatVel = (ai.currentLateral - (ai._prevLat ?? ai.currentLateral)) / dt;
+    ai._prevLat = ai.currentLateral;
+    ai._smoothLatVel = ai._smoothLatVel !== undefined ? ai._smoothLatVel * 0.9 + rawLatVel * 0.1 : rawLatVel;
+
+    // Smooth rotation
+    const forwardDir = new THREE.Vector3(tangent0.x, 0, tangent0.z);
+    const latDir = new THREE.Vector3(normal0.x, 0, normal0.z);
+    const velDir = forwardDir.clone().multiplyScalar(ai.speed).add(latDir.clone().multiplyScalar(ai._smoothLatVel));
+    const targetRot = velDir.length() > 0.5 ? Math.atan2(velDir.x, velDir.z) : Math.atan2(tangent0.x, tangent0.z);
+    let rotDiff = targetRot - car.rotation.y;
+    rotDiff = Math.atan2(Math.sin(rotDiff), Math.cos(rotDiff));
+    car.rotation.y += rotDiff * Math.min(1, 6 * dt);
   }
 }
 
@@ -1277,7 +1416,7 @@ const _cDiff = new THREE.Vector3();
 const _cCorner = new THREE.Vector3();
 
 function obbOverlap(pos1, rot1, pos2, rot2) {
-  const hw = 0.7, hl = 1.7;
+  const hw = 0.55, hl = 1.4;
   const c1 = Math.cos(rot1), s1 = Math.sin(rot1);
   const c2 = Math.cos(rot2), s2 = Math.sin(rot2);
 
@@ -1349,10 +1488,19 @@ function resolveCollisions() {
   for (let i = 0; i < carList.length; i++) {
     for (let j = i + 1; j < carList.length; j++) {
       const a = carList[i], b = carList[j];
+      if (!a.isPlayer && !b.isPlayer) continue;
       const result = obbOverlap(a.pos, a.rot(), b.pos, b.rot());
       if (!result) continue;
 
-      Sound.collision();
+      const now = performance.now();
+      const lastA = a.isPlayer ? _playerCollisionTime : aiData[a.aiIdx]._collisionTime;
+      const lastB = b.isPlayer ? _playerCollisionTime : aiData[b.aiIdx]._collisionTime;
+      if (now - (lastA || 0) > 300 || now - (lastB || 0) > 300) {
+        Sound.collision();
+        const t = now;
+        if (a.isPlayer) _playerCollisionTime = t; else aiData[a.aiIdx]._collisionTime = t;
+        if (b.isPlayer) _playerCollisionTime = t; else aiData[b.aiIdx]._collisionTime = t;
+      }
       const n = result.normal;
       const push = result.overlap * 0.5;
       a.pos.addScaledVector(n, -push);
