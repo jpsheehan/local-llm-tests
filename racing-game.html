@@ -1295,6 +1295,7 @@ placeOnGrid(playerCar, gridPositions[AI_COUNT].t, gridPositions[AI_COUNT].latera
   countdownTimer = 0;
   messageEl.classList.remove('show');
   document.getElementById('fade-overlay').style.opacity = '0';
+  Sound.offEngine();
   updateHUD();
 }
 
