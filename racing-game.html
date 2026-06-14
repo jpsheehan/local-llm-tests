@@ -59,6 +59,22 @@ canvas { display: block; }
 }
 #message.show { opacity: 1; }
 
+@keyframes wrongway-flash {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.15; }
+}
+#wrongway {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  font-size: 36px; font-weight: 900; text-align: center;
+  color: #f44; text-shadow: 0 0 20px rgba(255,0,0,0.6), 0 2px 8px rgba(0,0,0,0.8);
+  letter-spacing: 6px;
+  display: none;
+}
+#wrongway.show {
+  display: block;
+  animation: wrongway-flash 0.6s ease-in-out infinite;
+}
+
 #lap-times-panel {
   position: absolute; top: 130px; right: 40px;
   text-align: right;
@@ -171,6 +187,7 @@ canvas { display: block; }
   </div>
   <div id="track-name"></div>
   <div id="message"></div>
+  <div id="wrongway">WRONG WAY</div>
   <div id="minimap"><canvas id="minimap-canvas" width="140" height="140"></canvas></div>
   <div id="rearview-mirror"></div>
   <div id="fade-overlay"></div>
@@ -1245,6 +1262,8 @@ let penaltyCountdownStarted = false;
 let countdown = 3;
 let countdownTimer = 0;
 let messageEl = document.getElementById('message');
+let wrongWayEl = document.getElementById('wrongway');
+let wrongWayActive = false;
 let racePositions = [];
 
 function togglePause() {
@@ -1296,6 +1315,8 @@ placeOnGrid(playerCar, gridPositions[AI_COUNT].t, gridPositions[AI_COUNT].latera
   messageEl.classList.remove('show');
   document.getElementById('fade-overlay').style.opacity = '0';
   Sound.offEngine();
+  wrongWayEl.classList.remove('show');
+  wrongWayActive = false;
   updateHUD();
 }
 
@@ -1593,6 +1614,19 @@ function updatePlayer(dt) {
     }
   }
   Sound.upEngine(Math.abs(playerSpeed));
+
+  // Wrong-way detection
+  const heading = new THREE.Vector3(Math.sin(playerCar.rotation.y), 0, Math.cos(playerCar.rotation.y));
+  const tTangent = getTrackTangent(trackT);
+  const facing = heading.dot(tTangent);
+  const goingWrong = facing < -0.2 && playerSpeed > 1;
+  if (goingWrong && !wrongWayActive) {
+    wrongWayActive = true;
+    wrongWayEl.classList.add('show');
+  } else if (!goingWrong && wrongWayActive) {
+    wrongWayActive = false;
+    wrongWayEl.classList.remove('show');
+  }
 }
 
 function _getTrackT(pos) {
@@ -2054,6 +2088,8 @@ function gameLoop(time) {
         }
         placeOnGrid(playerCar, closestT, 0, 0);
         playerSpeed = 0;
+        wrongWayEl.classList.remove('show');
+        wrongWayActive = false;
       }
 
       if (penaltyTeleported && penaltyTimer >= 0.6 && !penaltyCountdownStarted) {
