@@ -126,6 +126,15 @@ canvas { display: block; }
   background: transparent;
   box-shadow: 0 4px 20px rgba(0,0,0,0.4);
 }
+
+#fade-overlay {
+  position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+  background: #000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 5;
+}
 </style>
 </head>
 <body>
@@ -164,6 +173,7 @@ canvas { display: block; }
   <div id="message"></div>
   <div id="minimap"><canvas id="minimap-canvas" width="140" height="140"></canvas></div>
   <div id="rearview-mirror"></div>
+  <div id="fade-overlay"></div>
 </div>
 
 <script type="importmap">
@@ -1212,6 +1222,13 @@ const Sound = {
     src.connect(f); f.connect(g); g.connect(this.ctx.destination);
     src.start();
   },
+
+  offTrack() {
+    if (!this.ctx) return;
+    const t = this.ctx.currentTime;
+    this._note(350, t, 0.12, 0.3);
+    this._note(250, t + 0.12, 0.18, 0.3);
+  },
 };
 
 Sound.init();
@@ -1221,6 +1238,10 @@ let gameTime = 0;
 let gameStarted = false;
 let gameOver = false;
 let paused = false;
+let penaltyActive = false;
+let penaltyTimer = 0;
+let penaltyTeleported = false;
+let penaltyCountdownStarted = false;
 let countdown = 3;
 let countdownTimer = 0;
 let messageEl = document.getElementById('message');
@@ -1267,9 +1288,13 @@ placeOnGrid(playerCar, gridPositions[AI_COUNT].t, gridPositions[AI_COUNT].latera
   gameTime = 0;
   gameOver = false;
   paused = false;
+  penaltyActive = false;
+  penaltyTimer = 0;
+  penaltyCountdownStarted = false;
   countdown = 3;
   countdownTimer = 0;
   messageEl.classList.remove('show');
+  document.getElementById('fade-overlay').style.opacity = '0';
   updateHUD();
 }
 
@@ -1997,23 +2022,62 @@ function gameLoop(time) {
     if (!gameOver) {
       gameTime += dt;
     }
-    updatePlayer(dt);
+    if (!penaltyActive) updatePlayer(dt);
     updateAI(dt);
     if (gameTime > 2) resolveCollisions();
-    
-    // Check if player is off-track and reset position
-    if (isPlayerOffTrack()) {
-      let closestT = 0;
-      let minDist = Infinity;
-      for (let i = 0; i < trackSamplePts.length; i++) {
-        const dist = playerCar.position.distanceTo(trackSamplePts[i]);
-        if (dist < minDist) {
-          minDist = dist;
-          closestT = i / (trackSamplePts.length - 1);
+
+    // Off-track penalty
+    if (isPlayerOffTrack() && !penaltyActive && !gameOver) {
+      penaltyActive = true;
+      penaltyTimer = 0;
+      penaltyTeleported = false;
+      penaltyCountdownStarted = false;
+      Sound.offEngine();
+      Sound.offTrack();
+      document.getElementById('fade-overlay').style.opacity = '1';
+    }
+
+    if (penaltyActive) {
+      penaltyTimer += dt;
+
+      if (!penaltyTeleported && penaltyTimer >= 0.3) {
+        penaltyTeleported = true;
+        let closestT = 0;
+        let minDist = Infinity;
+        for (let i = 0; i < trackSamplePts.length; i++) {
+          const dist = playerCar.position.distanceTo(trackSamplePts[i]);
+          if (dist < minDist) {
+            minDist = dist;
+            closestT = i / (trackSamplePts.length - 1);
+          }
+        }
+        placeOnGrid(playerCar, closestT, 0, 0);
+        playerSpeed = 0;
+      }
+
+      if (penaltyTeleported && penaltyTimer >= 0.6 && !penaltyCountdownStarted) {
+        penaltyCountdownStarted = true;
+        document.getElementById('fade-overlay').style.opacity = '0';
+        showMessage('PENALTY 2');
+        Sound.beep(440, 0.12, 0.25);
+      }
+
+      if (penaltyCountdownStarted) {
+        const elapsed = penaltyTimer - 0.6;
+        const prevRemaining = Math.ceil(2 - (elapsed - dt));
+        const nowRemaining = Math.ceil(2 - elapsed);
+        if (nowRemaining < prevRemaining && nowRemaining > 0) {
+          showMessage('PENALTY ' + nowRemaining);
+          Sound.beep(440, 0.12, 0.25);
         }
       }
-      placeOnGrid(playerCar, closestT, 0, 0);
-      playerSpeed = 0; // Reset player speed to zero
+
+      if (penaltyCountdownStarted && penaltyTimer >= 2.6) {
+        penaltyActive = false;
+        showMessage('GO!');
+        Sound.beep(660, 0.25, 0.3);
+        setTimeout(() => messageEl.classList.remove('show'), 500);
+      }
     }
   }
 
