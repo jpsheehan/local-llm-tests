@@ -117,6 +117,15 @@ canvas { display: block; }
 #minimap canvas {
   width: 100%; height: 100%;
 }
+
+#rearview-mirror {
+  position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+  width: 240px; height: 135px;
+  border: 2px solid rgba(255,255,255,0.25);
+  border-radius: 8px;
+  background: transparent;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
 </style>
 </head>
 <body>
@@ -154,6 +163,7 @@ canvas { display: block; }
   <div id="track-name"></div>
   <div id="message"></div>
   <div id="minimap"><canvas id="minimap-canvas" width="140" height="140"></canvas></div>
+  <div id="rearview-mirror"></div>
 </div>
 
 <script type="importmap">
@@ -301,6 +311,7 @@ scene.background = new THREE.Color(0x87CEEB);
 scene.fog = new THREE.Fog(0x87CEEB, 200, 400);
 
 const camera = new THREE.PerspectiveCamera(65, window.innerWidth / window.innerHeight, 0.1, 500);
+const rearViewCamera = new THREE.PerspectiveCamera(75, 240 / 135, 0.1, 500);
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
@@ -2019,7 +2030,41 @@ function gameLoop(time) {
     }
   });
   
+  renderer.autoClear = false;
+  renderer.clear();
+
+  // Main view
+  renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+  renderer.setScissorTest(false);
   renderer.render(scene, camera);
+
+  // Rear-view mirror
+  if (!paused) {
+    const MIRROR_W = 240, MIRROR_H = 135;
+    const mirrorX = (window.innerWidth - MIRROR_W) / 2;
+    const mirrorY = window.innerHeight - 10 - MIRROR_H;
+
+    const forward = new THREE.Vector3(
+      Math.sin(playerCar.rotation.y),
+      0,
+      Math.cos(playerCar.rotation.y)
+    );
+    const rearPos = playerCar.position.clone();
+    rearPos.y += 1.5;
+    rearPos.sub(forward.clone().multiplyScalar(0.5));
+    rearViewCamera.position.copy(rearPos);
+    const lookTarget = playerCar.position.clone().sub(forward.clone().multiplyScalar(20));
+    rearViewCamera.lookAt(lookTarget);
+
+    renderer.setViewport(mirrorX, mirrorY, MIRROR_W, MIRROR_H);
+    renderer.setScissor(mirrorX, mirrorY, MIRROR_W, MIRROR_H);
+    renderer.setScissorTest(true);
+    renderer.clearDepth();
+    renderer.render(scene, rearViewCamera);
+    renderer.setScissorTest(false);
+    renderer.setViewport(0, 0, window.innerWidth, window.innerHeight);
+  }
+  renderer.autoClear = true;
 }
 
 // ─── RESIZE ───────────────────────────────────────────────
