@@ -952,7 +952,7 @@ let playerLap = 0;
 let playerLastCheckpoint = 0;
 let playerCheckpointsPassed = 0;
 let playerFinished = false;
-let playerPrevAlong = 0;
+let playerPrevAlong = -1;
 let playerFinishCrossings = 0;
 const playerLapTimes = [];
 let playerLastLapTime = 0;
@@ -1236,7 +1236,7 @@ placeOnGrid(playerCar, gridPositions[AI_COUNT].t, gridPositions[AI_COUNT].latera
   playerLastCheckpoint = 0;
   playerCheckpointsPassed = 0;
   playerFinished = false;
-  playerPrevAlong = 0;
+  playerPrevAlong = -1;
   playerFinishCrossings = 0;
   playerLapTimes.length = 0;
   playerLastLapTime = 0;
