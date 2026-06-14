@@ -1468,7 +1468,7 @@ function updatePlayer(dt) {
       if (right) playerCar.rotation.y -= turnFactor * dir;
       // Speed loss from turning at speed
       if (absSpd > 15 && (left || right)) {
-        playerSpeed *= 1 - 0.04 * (absSpd / MAX_SPEED) * dt;
+        playerSpeed *= 1 - 0.07 * (absSpd / MAX_SPEED) * dt;
       }
     }
   }
